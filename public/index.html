@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Readerize | Premium Edge Reading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="app-container">
+        <!-- Dashboard View -->
+        <main id="view-dashboard" class="view active">
+            <header class="glass-header">
+                <div class="logo">Readerize<span>.edge</span></div>
+                <div class="theme-toggle" id="theme-toggle">🌓</div>
+            </header>
+
+            <section class="hero-section">
+                <h1 class="hero-title">Read the web,<br><span class="gradient-text">without the noise.</span></h1>
+                <p class="hero-subtitle">Instantly parse any article into a beautiful, distraction-free reading experience rendered entirely on Cloudflare's edge network.</p>
+                
+                <form id="parse-form" class="parse-form">
+                    <div class="input-group">
+                        <input type="url" id="url-input" placeholder="Paste article URL here (e.g. https://medium.com/...)" required>
+                        <button type="submit" id="submit-btn">
+                            <span class="btn-text">Readerize It</span>
+                            <div class="spinner hidden"></div>
+                        </button>
+                    </div>
+                    <div id="error-message" class="error-msg"></div>
+                </form>
+            </section>
+
+            <section class="library-section">
+                <div class="library-header">
+                    <h2>Your Library</h2>
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Search library...">
+                        <span class="search-icon">🔍</span>
+                    </div>
+                </div>
+                
+                <div id="articles-grid" class="articles-grid">
+                    <!-- Loading skeleton -->
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Article Reader View -->
+        <main id="view-article" class="view">
+            <nav class="reader-nav">
+                <button id="btn-back" class="icon-btn">← Back to Library</button>
+                <div class="reader-controls">
+                    <button class="icon-btn font-btn" data-action="decrease">A-</button>
+                    <button class="icon-btn font-btn" data-action="increase">A+</button>
+                    <button class="icon-btn font-btn" data-action="serif">T</button>
+                </div>
+            </nav>
+            
+            <div id="reader-content" class="reader-content typography-sans">
+                <!-- Injected Article Content -->
+                <div class="reader-loading">
+                    <div class="spinner large"></div>
+                    <p>Loading article...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
