@@ -108,6 +108,95 @@ function extractActionLinks(doc: any, unsubscribeLink: string | null): { href: s
 	return links;
 }
 
+// Helpers for advanced image handling
+function resolveLazyImages(doc: any) {
+	const images = Array.from(doc.querySelectorAll('img')) as any[];
+	const lazyAttributes = ['data-src', 'data-lazy-src', 'data-original', 'data-fallback-src', 'data-actual-src', 'data-src-webp'];
+	for (const img of images) {
+		let src = img.getAttribute('src');
+		const isPlaceholder = !src || src.startsWith('data:image/') || src.includes('placeholder') || src.includes('transparent') || src.includes('1x1') || src.includes('blank');
+
+		let resolvedFromLazy = false;
+		if (isPlaceholder) {
+			for (const attr of lazyAttributes) {
+				const lazyVal = img.getAttribute(attr);
+				if (lazyVal && lazyVal.trim().startsWith('http')) {
+					img.setAttribute('src', lazyVal.trim());
+					src = lazyVal.trim();
+					resolvedFromLazy = true;
+					break;
+				}
+			}
+		}
+
+		// Only fall back to srcset if we still don't have a real image — a
+		// successful lazy-attr resolution above must not be clobbered.
+		if (!resolvedFromLazy && (!src || isPlaceholder) && img.getAttribute('srcset')) {
+			const srcset = img.getAttribute('srcset');
+			const candidates = srcset.split(',').map((cand: string) => {
+				const parts = cand.trim().split(/\s+/);
+				return { url: parts[0], width: parseInt(parts[1]) || 0 };
+			}).sort((a: any, b: any) => b.width - a.width);
+			if (candidates.length > 0 && candidates[0].url) {
+				img.setAttribute('src', candidates[0].url);
+			}
+		}
+	}
+}
+
+// Heuristic for tracking/spacer pixels we don't want to rescue. Keyword checks
+// use path/word boundaries so legitimate URLs (e.g. /openverse/, pixel-art.png,
+// opengraph.io) aren't mistaken for trackers.
+function isTrackingPixel(src: string, width: number, height: number): boolean {
+	if (width === 1 && height === 1) return true;
+	return /(^|[\/_.-])(tracker|tracking|beacon|spacer|pixel)([\/_.-]|$)/i.test(src);
+}
+
+// Normalize an image src for dedup comparison: drop the query/hash and keep the
+// path so Readability's URL rewriting (relative→absolute, added query params)
+// doesn't make a surviving image look "missing" and get duplicated.
+function normalizeImageSrc(src: string): string {
+	const trimmed = src.trim();
+	const noFragment = trimmed.split('#')[0].split('?')[0];
+	const slash = noFragment.lastIndexOf('/');
+	return (slash >= 0 ? noFragment.slice(slash + 1) : noFragment) || noFragment;
+}
+
+function convertCenterTags(doc: any) {
+	const centers = Array.from(doc.querySelectorAll('center')) as any[];
+	for (const center of centers) {
+		const div = doc.createElement('div');
+		div.setAttribute('style', (center.getAttribute('style') || '') + '; text-align: center;');
+		for (const attr of center.attributes || []) {
+			if (attr.name !== 'style') div.setAttribute(attr.name, attr.value);
+		}
+		while (center.firstChild) div.appendChild(center.firstChild);
+		center.parentNode?.replaceChild(div, center);
+	}
+}
+
+function extractFeaturedImage(doc: any, url: string): string | null {
+	let featured = '';
+	const og = doc.querySelector('meta[property="og:image"]');
+	if (og) featured = og.getAttribute('content');
+	if (!featured) {
+		const tw = doc.querySelector('meta[name="twitter:image"]');
+		if (tw) featured = tw.getAttribute('content');
+	}
+	if (!featured) {
+		const thumb = doc.querySelector('img.wp-post-image, img.featured-image, .featured-image img, .post-thumbnail img, .entry-header img');
+		if (thumb) featured = thumb.getAttribute('src') || thumb.getAttribute('data-src');
+	}
+	if (featured) {
+		try {
+			return new URL(featured, url).href;
+		} catch {
+			return null;
+		}
+	}
+	return null;
+}
+
 async function parseArticle(url: string, env: AppEnv): Promise<{ id: string; title: string }> {
 	const browser = await puppeteer.launch(env.BROWSER);
 	const page = await browser.newPage();
@@ -116,6 +205,12 @@ async function parseArticle(url: string, env: AppEnv): Promise<{ id: string; tit
 	await browser.close();
 
 	const { document } = parseHTML(html);
+
+	// Advanced Image Handling: Pre-processing
+	convertCenterTags(document);
+	resolveLazyImages(document);
+	const featuredImageUrl = extractFeaturedImage(document, url);
+
 	const reader = new Readability(document);
 	const article = reader.parse();
 	if (!article) throw new Error('Failed to extract article content');
@@ -123,6 +218,28 @@ async function parseArticle(url: string, env: AppEnv): Promise<{ id: string; tit
 	const articleId = crypto.randomUUID();
 
 	const { document: articleDoc } = parseHTML(article.content);
+
+	// Rescue featured image if missing
+	if (featuredImageUrl) {
+		const imgs = Array.from(articleDoc.querySelectorAll('img')) as any[];
+		const hasFeatured = imgs.some(img => {
+			const src = img.getAttribute('src') || '';
+			return src === featuredImageUrl || src.includes(featuredImageUrl) || featuredImageUrl.includes(src);
+		});
+		if (!hasFeatured) {
+			const fig = articleDoc.createElement('figure');
+			fig.setAttribute('class', 'featured-image-container');
+			const img = articleDoc.createElement('img');
+			img.setAttribute('src', featuredImageUrl);
+			fig.appendChild(img);
+			if (articleDoc.body && articleDoc.body.firstChild) {
+				articleDoc.body.insertBefore(fig, articleDoc.body.firstChild);
+			} else if (articleDoc.documentElement) {
+				articleDoc.documentElement.insertBefore(fig, articleDoc.documentElement.firstChild);
+			}
+		}
+	}
+
 	const images = Array.from(articleDoc.querySelectorAll('img')) as any[];
 
 	await Promise.all(images.map(async (img) => {
@@ -317,6 +434,23 @@ export default {
 		const actionLinks = extractActionLinks(rawDoc, unsubscribeLink);
 
 		const { document } = parseHTML(rawHtml);
+
+		// Advanced Image Handling: Pre-processing
+		convertCenterTags(document);
+		resolveLazyImages(document);
+
+		// Extract all large images before Readability strips them out
+		const allOriginalImgs = Array.from(document.querySelectorAll('img')) as any[];
+		const originalImageSrcs = new Set<string>();
+		for (const img of allOriginalImgs) {
+			const src = img.getAttribute('src');
+			const width = parseInt(img.getAttribute('width') || '0', 10);
+			const height = parseInt(img.getAttribute('height') || '0', 10);
+			if (src && !isTrackingPixel(src, width, height)) {
+				originalImageSrcs.add(src);
+			}
+		}
+
 		const reader = new Readability(document);
 		const article = reader.parse();
 		if (!article) {
@@ -326,6 +460,33 @@ export default {
 
 		const articleId = crypto.randomUUID();
 		const { document: articleDoc } = parseHTML(article.content);
+
+		// Re-attach missing large images dropped by Readability (e.g., inside tables)
+		const survivingImgSrcs = new Set(
+			(Array.from(articleDoc.querySelectorAll('img')) as any[])
+				.map((img) => img.getAttribute('src'))
+				.filter((s): s is string => !!s)
+				.map(normalizeImageSrc)
+		);
+		const missingImages = Array.from(originalImageSrcs).filter(src => !survivingImgSrcs.has(normalizeImageSrc(src)));
+		if (missingImages.length) {
+			const section = articleDoc.createElement('div');
+			section.setAttribute('class', 'parsed-rescued-images');
+			const heading = articleDoc.createElement('p');
+			const strong = articleDoc.createElement('strong');
+			strong.textContent = 'Images from this email';
+			heading.appendChild(strong);
+			section.appendChild(heading);
+			for (const src of missingImages) {
+				const p = articleDoc.createElement('p');
+				const img = articleDoc.createElement('img');
+				img.setAttribute('src', src);
+				p.appendChild(img);
+				section.appendChild(p);
+			}
+			(articleDoc.body || articleDoc.documentElement).appendChild(section);
+		}
+
 		const images = Array.from(articleDoc.querySelectorAll('img')) as any[];
 
 		// 3. Process images (Inline CID + External)
