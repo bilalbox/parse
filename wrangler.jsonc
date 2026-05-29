@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "readerize-worker",
+	"name": "parse",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-05-28",
 	"compatibility_flags": [
@@ -12,8 +12,13 @@
 		"global_fetch_strictly_public"
 	],
 	"assets": {
-		// The path to the directory containing the `index.html` file to be served at `/`
-		"directory": "./public"
+		"directory": "./public",
+		// Serve index.html for any path that doesn't match a static file (SPA routing + PWA share target).
+		"not_found_handling": "single-page-application",
+		// Run the worker first for API routes so Hono handles them before asset lookup.
+		"run_worker_first": [
+			"/api/*"
+		]
 	},
 	"observability": {
 		"enabled": true
@@ -49,7 +54,7 @@
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "readerize-db",
+			"database_name": "parse-db",
 			"database_id": "1ebd56c0-1fc8-4582-a7cf-5c1698419e3e"
 		}
 	],
@@ -60,7 +65,7 @@
 	"r2_buckets": [
 		{
 			"binding": "MEDIA_BUCKET",
-			"bucket_name": "readerize-media"
+			"bucket_name": "parse-media"
 		}
 	],
 	/**
@@ -69,5 +74,17 @@
 	 */
 	"browser": {
 		"binding": "BROWSER"
+	},
+	/**
+	 * Cloudflare Queues
+	 * https://developers.cloudflare.com/queues/
+	 */
+	"queues": {
+		"producers": [
+			{ "queue": "parse-queue", "binding": "PARSE_QUEUE" }
+		],
+		"consumers": [
+			{ "queue": "parse-queue", "max_batch_size": 1, "max_batch_timeout": 0 }
+		]
 	}
 }

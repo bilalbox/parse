@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Readerize | Premium Edge Reading</title>
+    <meta name="theme-color" content="#6366f1">
+    <title>Parse | Edge Reading</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
@@ -14,8 +17,11 @@
         <!-- Dashboard View -->
         <main id="view-dashboard" class="view active">
             <header class="glass-header">
-                <div class="logo">Readerize<span>.edge</span></div>
-                <div class="theme-toggle" id="theme-toggle">🌓</div>
+                <div class="logo">Parse<span>.edge</span></div>
+                <div class="header-actions">
+                    <button class="icon-btn" id="settings-btn" title="API Token Settings">⚙</button>
+                    <div class="theme-toggle" id="theme-toggle">🌓</div>
+                </div>
             </header>
 
             <section class="hero-section">
@@ -26,7 +32,7 @@
                     <div class="input-group">
                         <input type="url" id="url-input" placeholder="Paste article URL here (e.g. https://medium.com/...)" required>
                         <button type="submit" id="submit-btn">
-                            <span class="btn-text">Readerize It</span>
+                            <span class="btn-text">Parse It</span>
                             <div class="spinner hidden"></div>
                         </button>
                     </div>
@@ -37,9 +43,15 @@
             <section class="library-section">
                 <div class="library-header">
                     <h2>Your Library</h2>
-                    <div class="search-box">
-                        <input type="text" id="search-input" placeholder="Search library...">
-                        <span class="search-icon">🔍</span>
+                    <div class="library-tools">
+                        <div class="filter-toggle" id="filter-toggle">
+                            <button class="filter-btn active" data-filter="active">Active</button>
+                            <button class="filter-btn" data-filter="archived">Archived</button>
+                        </div>
+                        <div class="search-box">
+                            <input type="text" id="search-input" placeholder="Search library...">
+                            <span class="search-icon">🔍</span>
+                        </div>
                     </div>
                 </div>
                 
@@ -57,6 +69,9 @@
             <nav class="reader-nav">
                 <button id="btn-back" class="icon-btn">← Back to Library</button>
                 <div class="reader-controls">
+                    <button class="icon-btn" id="btn-unsubscribe" title="Unsubscribe from this newsletter" hidden>Unsubscribe</button>
+                    <button class="icon-btn" id="btn-archive" title="Archive this article">Archive</button>
+                    <button class="icon-btn btn-danger" id="btn-delete" title="Delete this article">Delete</button>
                     <button class="icon-btn font-btn" data-action="decrease">A-</button>
                     <button class="icon-btn font-btn" data-action="increase">A+</button>
                     <button class="icon-btn font-btn" data-action="serif">T</button>
@@ -73,6 +88,22 @@
         </main>
     </div>
 
+    <!-- Token Setup Modal -->
+    <div id="token-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2>Connect to Parse</h2>
+            <p>Enter your <code>PARSE_TOKEN</code> secret to access your library. This is stored only in your browser.</p>
+            <input type="password" id="token-input" placeholder="Paste token here..." autocomplete="off" spellcheck="false">
+            <div id="token-error" class="error-msg"></div>
+            <button id="token-save-btn" class="token-save-btn">Save &amp; Continue</button>
+        </div>
+    </div>
+
     <script src="/app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
 </body>
 </html>

@@ -122,6 +122,16 @@ body {
     font-weight: 300;
 }
 
+body.authed .hero-title,
+body.authed .hero-subtitle {
+    display: none;
+}
+
+body.authed .hero-section {
+    padding-top: 2.5rem;
+    padding-bottom: 2rem;
+}
+
 /* Form */
 .parse-form {
     display: flex;
@@ -305,6 +315,81 @@ body {
     margin-top: 1rem;
 }
 
+.card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+}
+
+.card-btn {
+    background: transparent;
+    border: 1px solid var(--border-glass);
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.card-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--accent);
+}
+
+.card-unsub:hover,
+.card-delete:hover {
+    color: var(--error);
+    border-color: var(--error);
+}
+
+.card-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* Library filter toggle (Active / Archived) */
+.library-tools {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-toggle {
+    display: inline-flex;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-glass);
+    border-radius: 999px;
+    padding: 0.2rem;
+}
+
+.filter-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.4rem 1rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.filter-btn.active {
+    background: var(--accent);
+    color: #fff;
+}
+
+/* Destructive reader action */
+.btn-danger:hover {
+    color: var(--error);
+}
+
 /* Skeletons */
 .skeleton-card {
     background: var(--bg-secondary);
@@ -441,6 +526,37 @@ body {
     font-size: 0.9em;
 }
 
+/* Action links recovered from emails (confirm/verify buttons Readability drops) */
+.reader-content .parsed-action-links {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-glass);
+}
+
+.reader-content .parsed-action-links > p:first-child strong {
+    display: block;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.reader-content .parsed-action-links a {
+    display: inline-block;
+    padding: 0.6rem 1.2rem;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 10px;
+    border-bottom: none;
+    font-weight: 600;
+}
+
+.reader-content .parsed-action-links a:hover {
+    background: var(--accent-hover);
+    box-shadow: 0 5px 15px var(--accent-glow);
+}
+
 /* Font Modifiers */
 .typography-serif { font-family: var(--font-serif); }
 .typography-sans { font-family: var(--font-ui); }
@@ -451,4 +567,167 @@ body {
     #submit-btn { width: 100%; padding: 1rem; border-radius: 12px; }
     .reader-content { margin-top: 1.5rem; }
     .reader-content h1 { font-size: 2em; }
+}
+
+/* Header Actions */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#settings-btn {
+    font-size: 1.1rem;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+#settings-btn:hover { opacity: 1; }
+
+/* Token Setup Modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-overlay.hidden { display: none; }
+
+.modal-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-glass);
+    border-radius: 20px;
+    padding: 2.5rem;
+    max-width: 480px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.modal-box h2 {
+    font-size: 1.4rem;
+    color: var(--text-primary);
+}
+
+.modal-box p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.modal-box code {
+    background: var(--bg-primary);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: var(--accent);
+}
+
+.modal-box input[type="password"] {
+    width: 100%;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-glass);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: monospace;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.modal-box input[type="password"]:focus {
+    border-color: var(--accent);
+}
+
+.token-save-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0.85rem 1.5rem;
+    font-size: 1rem;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    align-self: flex-end;
+}
+
+.token-save-btn:hover { background: var(--accent-hover); }
+
+/* Toast Notifications */
+#toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    z-index: 2000;
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-glass);
+    border-left: 3px solid var(--accent);
+    color: var(--text-primary);
+    padding: 0.85rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-family: var(--font-ui);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transform: translateX(1rem);
+    animation: toast-in 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    pointer-events: auto;
+    max-width: 320px;
+}
+
+.toast.toast-out {
+    animation: toast-out 0.25s ease-in forwards;
+}
+
+.toast.toast-error {
+    border-left-color: var(--error);
+}
+
+.toast-link {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: underline;
+    word-break: break-all;
+}
+
+.toast-link:hover {
+    color: var(--accent-hover);
+}
+
+.toast-close {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    line-height: 1;
+    margin-left: 0.5rem;
+    padding: 0 0.25rem;
+    cursor: pointer;
+}
+
+.toast-close:hover {
+    color: var(--text-primary);
+}
+
+@keyframes toast-in {
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toast-out {
+    to { opacity: 0; transform: translateX(1rem); }
 }

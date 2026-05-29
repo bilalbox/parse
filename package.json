@@ -1,5 +1,5 @@
 {
-  "name": "readerize-worker",
+  "name": "parse",
   "version": "0.0.0",
   "private": true,
   "scripts": {

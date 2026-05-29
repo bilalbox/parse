@@ -10,8 +10,13 @@ CREATE TABLE articles (
     content JSON, -- Storing the Readability payload (or sanitized HTML) here natively
     source_type TEXT DEFAULT 'web',
     unsubscribe_link TEXT,
+    unsubscribe_one_click INTEGER DEFAULT 0, -- 1 when the link supports RFC 8058 one-click POST
+    archived INTEGER DEFAULT 0, -- 1 once the user archives the article out of the active library
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Index the active/archived split so the default library query stays fast.
+CREATE INDEX idx_articles_archived_created ON articles (archived, created_at DESC);
 
 -- 2. Create the FTS5 Virtual Table for Full-Text Search
 -- We index the title, author, and content.
