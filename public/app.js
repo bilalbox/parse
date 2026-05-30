@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const readerContent = document.getElementById('reader-content');
     const btnBack = document.getElementById('btn-back');
     const btnUnsubscribe = document.getElementById('btn-unsubscribe');
+    const btnSummarize = document.getElementById('btn-summarize');
     const btnArchive = document.getElementById('btn-archive');
     const btnDelete = document.getElementById('btn-delete');
     const filterToggle = document.getElementById('filter-toggle');
@@ -22,6 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const tokenInput = document.getElementById('token-input');
     const tokenSaveBtn = document.getElementById('token-save-btn');
     const tokenError = document.getElementById('token-error');
+    const settingsVoiceSelect = document.getElementById('settings-voice-select');
+    const settingsCloseBtn = document.getElementById('settings-close-btn');
+    const tokenCancelBtn = document.getElementById('token-cancel-btn');
+    const btnTts = document.getElementById('btn-tts');
 
     // State
     let currentFontSize = 1.15;
@@ -34,6 +39,480 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFilter = 'active';
     // View cross-fade duration; must match the CSS .view transition.
     const FADE_MS = 300;
+
+    let ttsController = null;
+
+    // Helper: Non-destructive DOM sentence splitter for pixel-perfect highlights
+    function prepareTtsContent(container) {
+        const sentences = [];
+        let sentenceCount = 0;
+        
+        const blockSelector = 'p, li, blockquote, h1, h2, h3, h4, h5, h6';
+        const skipSelector = '.parsed-action-links, .parsed-rescued-images, .summary-details';
+
+        // Visit every text node under the container in document order, skipping
+        // the appended "Links from this email" / "Images from this email" /
+        // summary sections (which aren't part of the article body to be read).
+        const eachTextNode = (cb) => {
+            const walk = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+            let node;
+            while (node = walk.nextNode()) {
+                if (node.parentElement && node.parentElement.closest(skipSelector)) continue;
+                cb(node);
+            }
+        };
+
+        // Group text nodes by their owning block, where a node's owner is its
+        // nearest block-level ancestor. Each text node therefore belongs to
+        // exactly one block — the innermost — so the same text can never be
+        // voiced twice. This is what keeps quotes from repeating: a <blockquote>
+        // wrapping a <p> contributes no text of its own (the <p> owns it), while
+        // a <blockquote> holding both loose text and a nested <p> contributes
+        // its loose text once AND lets the <p> contribute separately. Runs stay
+        // contiguous in document order, so a block's text split around a nested
+        // block reads in order and never merges across it.
+        const runs = [];
+        let currentRun = null;
+        eachTextNode((textNode) => {
+            // Loose text with no block ancestor (e.g. a figure caption, or stray
+            // text directly under the container) is intentionally not voiced.
+            const owner = textNode.parentElement && textNode.parentElement.closest(blockSelector);
+            if (!owner) return;
+            if (!currentRun || currentRun.owner !== owner) {
+                currentRun = { owner, nodes: [] };
+                runs.push(currentRun);
+            }
+            currentRun.nodes.push(textNode);
+        });
+
+        // Degenerate container with no block elements at all: voice its text as
+        // one run so a bare-text article isn't left silent.
+        if (runs.length === 0) {
+            const nodes = [];
+            eachTextNode((node) => nodes.push(node));
+            if (nodes.length) runs.push({ owner: container, nodes });
+        }
+        
+        const splitRegex = /[^.!?]+[.!?]+(?:\s+|\u200b|$)|[^.!?]+(?:\s+|\u200b|$)/g;
+        
+        runs.forEach(run => {
+            const textNodes = run.nodes;
+            const text = textNodes.map(n => n.textContent).join('');
+            const matches = text.match(splitRegex);
+            if (!matches || matches.length === 0) return;
+
+            const blockSentences = matches.map(m => m.trim()).filter(m => m.length > 0);
+            if (blockSentences.length === 0) return;
+
+            let charOffset = 0;
+            let sentenceIdx = 0;
+            let currentSentenceText = blockSentences[sentenceIdx];
+            let currentSentenceStart = text.indexOf(currentSentenceText, charOffset);
+            
+            textNodes.forEach(node => {
+                const nodeText = node.textContent;
+                const nodeLength = nodeText.length;
+                const nodeStart = charOffset;
+                charOffset += nodeLength;
+                
+                const parent = node.parentNode;
+                const fragment = document.createDocumentFragment();
+                
+                let nodeOffset = 0;
+                while (nodeOffset < nodeLength) {
+                    if (sentenceIdx >= blockSentences.length) {
+                        fragment.appendChild(document.createTextNode(nodeText.substring(nodeOffset)));
+                        break;
+                    }
+                    
+                    const sText = blockSentences[sentenceIdx];
+                    const sStartInBlock = text.indexOf(sText, currentSentenceStart);
+                    const sEndInBlock = sStartInBlock + sText.length;
+                    
+                    const absNodeOffset = nodeStart + nodeOffset;
+                    
+                    if (absNodeOffset < sStartInBlock) {
+                        const len = Math.min(sStartInBlock - absNodeOffset, nodeLength - nodeOffset);
+                        fragment.appendChild(document.createTextNode(nodeText.substring(nodeOffset, nodeOffset + len)));
+                        nodeOffset += len;
+                    } else if (absNodeOffset >= sStartInBlock && absNodeOffset < sEndInBlock) {
+                        const len = Math.min(sEndInBlock - absNodeOffset, nodeLength - nodeOffset);
+                        const matchText = nodeText.substring(nodeOffset, nodeOffset + len);
+                        
+                        const span = document.createElement('span');
+                        span.className = 'tts-sentence';
+                        const globalIdx = sentenceCount + sentenceIdx;
+                        span.dataset.sentenceIndex = globalIdx;
+                        span.textContent = matchText;
+                        fragment.appendChild(span);
+                        
+                        if (!sentences[globalIdx]) {
+                            sentences[globalIdx] = {
+                                text: sText,
+                                elements: []
+                            };
+                        }
+                        sentences[globalIdx].elements.push(span);
+                        
+                        nodeOffset += len;
+                        
+                        if (absNodeOffset + len >= sEndInBlock) {
+                            sentenceIdx++;
+                            if (sentenceIdx < blockSentences.length) {
+                                currentSentenceText = blockSentences[sentenceIdx];
+                                currentSentenceStart = text.indexOf(currentSentenceText, sEndInBlock);
+                            }
+                        }
+                    } else {
+                        sentenceIdx++;
+                        if (sentenceIdx < blockSentences.length) {
+                            currentSentenceText = blockSentences[sentenceIdx];
+                            currentSentenceStart = text.indexOf(currentSentenceText, absNodeOffset);
+                        } else {
+                            fragment.appendChild(document.createTextNode(nodeText.substring(nodeOffset)));
+                            break;
+                        }
+                    }
+                }
+                
+                parent.replaceChild(fragment, node);
+            });
+            
+            sentenceCount += blockSentences.length;
+        });
+        
+        return sentences;
+    }
+
+    // Class: Text-to-Speech (TTS) Engine Controller utilizing Cloudflare Workers AI edge voices
+    class TTSController {
+        constructor() {
+            this.sentences = [];
+            this.currentIndex = -1;
+            this.isPlaying = false;
+            this.selectedSpeaker = 'angus';
+            this.selectedSpeed = 1.0;
+            this.articleId = null;
+            this.articleTitle = '';
+            this.articleAuthor = '';
+            this.featuredImage = '';
+
+            this.playerPanel = document.getElementById('tts-player');
+            this.playPauseBtn = document.getElementById('player-play-pause');
+            this.progressBar = document.getElementById('player-progress');
+            this.progressArea = document.getElementById('player-progress-area');
+            this.titleEl = document.getElementById('player-title');
+            this.authorEl = document.getElementById('player-author');
+            this.speedSelect = document.getElementById('player-speed');
+            this.voiceSelect = document.getElementById('player-voice');
+            this.closeBtn = document.getElementById('player-close');
+            
+            this.prevBtn = document.getElementById('player-prev');
+            this.nextBtn = document.getElementById('player-next');
+            this.rewindBtn = document.getElementById('player-rewind');
+            this.forwardBtn = document.getElementById('player-forward');
+            
+            // Native HTML5 audio nodes
+            this.audio = document.getElementById('tts-audio');
+            this.prefetchAudio = new Audio();
+
+            this.initListeners();
+            this.initVoices();
+        }
+
+        initListeners() {
+            this.playPauseBtn.addEventListener('click', () => this.togglePlay());
+            this.closeBtn.addEventListener('click', () => this.hidePlayer());
+            
+            this.speedSelect.addEventListener('change', (e) => {
+                this.selectedSpeed = parseFloat(e.target.value);
+                this.audio.playbackRate = this.selectedSpeed;
+                this.prefetchAudio.playbackRate = this.selectedSpeed;
+            });
+            
+            this.voiceSelect.addEventListener('change', (e) => {
+                this.selectedSpeaker = e.target.value;
+                localStorage.setItem('tts_speaker', this.selectedSpeaker);
+                if (this.isPlaying) {
+                    this.playSentence(this.currentIndex);
+                } else if (this.currentIndex >= 0 && this.currentIndex < this.sentences.length) {
+                    this.audio.src = this.getAudioUrl(this.currentIndex);
+                }
+            });
+            
+            this.prevBtn.addEventListener('click', () => this.prevSentence());
+            this.nextBtn.addEventListener('click', () => this.nextSentence());
+            this.rewindBtn.addEventListener('click', () => this.prevSentence());
+            this.forwardBtn.addEventListener('click', () => this.nextSentence());
+
+            this.progressArea.addEventListener('click', (e) => {
+                if (this.sentences.length === 0) return;
+                const rect = this.progressArea.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const width = rect.width;
+                const pct = clickX / width;
+                const targetIdx = Math.floor(pct * this.sentences.length);
+                const clampedIdx = Math.max(0, Math.min(targetIdx, this.sentences.length - 1));
+                this.jumpToSentence(clampedIdx);
+            });
+
+            // Bind listeners to the real HTML5 Audio Element
+            this.audio.addEventListener('play', () => {
+                this.isPlaying = true;
+                this.playPauseBtn.textContent = '⏸';
+                this.playPauseBtn.title = 'Pause';
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = 'playing';
+                }
+            });
+
+            this.audio.addEventListener('pause', () => {
+                if (this.audio.ended) return; // Ignore native pause events dispatched during track ending
+                this.isPlaying = false;
+                this.playPauseBtn.textContent = '▶';
+                this.playPauseBtn.title = 'Play';
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = 'paused';
+                }
+            });
+
+            this.audio.addEventListener('ended', () => {
+                this.clearHighlight();
+                this.currentIndex++;
+                if (this.currentIndex < this.sentences.length) {
+                    this.playSentence(this.currentIndex);
+                } else {
+                    this.stop();
+                }
+            });
+
+            this.audio.addEventListener('error', (e) => {
+                console.error('Audio playback error:', e);
+                setTimeout(() => this.nextSentence(), 500);
+            });
+
+            // Crucial: Chrome resets playbackRate when a new src is loaded, so we re-apply it on loaded metadata
+            this.audio.addEventListener('loadedmetadata', () => {
+                this.audio.playbackRate = this.selectedSpeed;
+            });
+        }
+
+        initVoices() {
+            // Curated list of deep neural speaker profiles available on Workers AI Deepgram Aura-1
+            const speakers = [
+                { id: 'angus', name: '🌟 Angus (Male - Natural)' },
+                { id: 'asteria', name: '🌟 Asteria (Female - Expressive)' },
+                { id: 'arcas', name: '🌟 Arcas (Male - Crisp)' },
+                { id: 'orion', name: '🌟 Orion (Male - Professional)' },
+                { id: 'hera', name: '🌟 Hera (Female - Conversational)' },
+                { id: 'zeus', name: '🌟 Zeus (Male - Dynamic)' }
+            ];
+
+            this.voiceSelect.innerHTML = '';
+            speakers.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.id;
+                option.textContent = voice.name;
+                this.voiceSelect.appendChild(option);
+            });
+
+            this.selectedSpeaker = localStorage.getItem('tts_speaker') || 'angus';
+            this.voiceSelect.value = this.selectedSpeaker;
+        }
+
+        getAudioUrl(index) {
+            if (index < 0 || index >= this.sentences.length) return '';
+            const text = this.sentences[index].text;
+            const speaker = this.selectedSpeaker || 'angus';
+            const token = getToken();
+            return `/api/articles/${this.articleId}/audio?text=${encodeURIComponent(text)}&speaker=${encodeURIComponent(speaker)}&token=${encodeURIComponent(token)}`;
+        }
+
+        setupMediaSession() {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: this.articleTitle,
+                    artist: this.articleAuthor || 'Parse Reader',
+                    album: 'Articles',
+                    artwork: [
+                        { src: this.featuredImage || '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }
+                    ]
+                });
+
+                navigator.mediaSession.setActionHandler('play', () => this.play());
+                navigator.mediaSession.setActionHandler('pause', () => this.pause());
+                navigator.mediaSession.setActionHandler('previoustrack', () => this.prevSentence());
+                navigator.mediaSession.setActionHandler('nexttrack', () => this.nextSentence());
+                navigator.mediaSession.setActionHandler('seekbackward', () => this.prevSentence());
+                navigator.mediaSession.setActionHandler('seekforward', () => this.nextSentence());
+            }
+        }
+
+        parseArticle(articleId, title, author, contentHtml) {
+            this.stop();
+            this.articleId = articleId;
+            this.articleTitle = title;
+            this.articleAuthor = author;
+
+            const temp = document.createElement('div');
+            temp.innerHTML = contentHtml;
+            const img = temp.querySelector('.featured-image-container img, img');
+            this.featuredImage = img ? img.src : '';
+
+            const body = document.querySelector('#reader-content .article-body');
+            if (!body) return;
+
+            this.sentences = prepareTtsContent(body);
+            this.currentIndex = 0;
+            this.updateProgress();
+
+            this.titleEl.textContent = this.articleTitle;
+            this.authorEl.textContent = this.articleAuthor ? `By ${this.articleAuthor}` : 'Unknown Author';
+
+            body.querySelectorAll('.tts-sentence').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const idx = parseInt(el.dataset.sentenceIndex);
+                    if (!isNaN(idx)) {
+                        this.jumpToSentence(idx);
+                    }
+                });
+            });
+        }
+
+        showPlayer() {
+            this.playerPanel.classList.remove('hidden');
+            setTimeout(() => this.playerPanel.classList.add('active'), 50);
+        }
+
+        hidePlayer() {
+            this.stop();
+            this.playerPanel.classList.remove('active');
+            setTimeout(() => this.playerPanel.classList.add('hidden'), 400);
+        }
+
+        togglePlay() {
+            if (this.isPlaying) {
+                this.pause();
+            } else {
+                this.play();
+            }
+        }
+
+        play() {
+            if (this.sentences.length === 0) return;
+            this.isPlaying = true;
+            this.setupMediaSession();
+            this.playSentence(this.currentIndex);
+        }
+
+        pause() {
+            this.isPlaying = false;
+            this.audio.pause();
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'paused';
+            }
+        }
+
+        stop() {
+            this.isPlaying = false;
+            this.audio.pause();
+            this.audio.removeAttribute('src'); // Unloads the audio
+            this.audio.load();
+            this.clearHighlight();
+            this.currentIndex = 0;
+            this.updateProgress();
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'none';
+            }
+        }
+
+        jumpToSentence(index) {
+            this.clearHighlight();
+            this.currentIndex = index;
+            this.updateProgress();
+            if (this.isPlaying) {
+                this.playSentence(index);
+            } else {
+                this.highlightSentence(index);
+                const el = this.sentences[index]?.elements[0];
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                this.audio.src = this.getAudioUrl(index);
+            }
+        }
+
+        prevSentence() {
+            if (this.currentIndex > 0) {
+                this.jumpToSentence(this.currentIndex - 1);
+            }
+        }
+
+        nextSentence() {
+            if (this.currentIndex < this.sentences.length - 1) {
+                this.jumpToSentence(this.currentIndex + 1);
+            } else {
+                this.stop();
+            }
+        }
+
+        clearHighlight() {
+            if (this.currentIndex >= 0 && this.currentIndex < this.sentences.length) {
+                this.sentences[this.currentIndex].elements.forEach(el => {
+                    el.classList.remove('active-sentence');
+                });
+            }
+        }
+
+        highlightSentence(index) {
+            if (index >= 0 && index < this.sentences.length) {
+                this.sentences[index].elements.forEach(el => {
+                    el.classList.add('active-sentence');
+                });
+            }
+        }
+
+        updateProgress() {
+            if (this.sentences.length === 0) {
+                this.progressBar.style.width = '0%';
+                return;
+            }
+            const pct = (this.currentIndex / this.sentences.length) * 100;
+            this.progressBar.style.width = `${pct}%`;
+        }
+
+        playSentence(index) {
+            if (index < 0 || index >= this.sentences.length) {
+                this.stop();
+                return;
+            }
+
+            const sentence = this.sentences[index];
+            this.highlightSentence(index);
+            
+            const firstEl = sentence.elements[0];
+            if (firstEl) {
+                firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            this.updateProgress();
+
+            const url = this.getAudioUrl(index);
+            this.audio.src = url;
+            this.audio.load();
+            this.audio.playbackRate = this.selectedSpeed;
+            
+            this.audio.play().catch(err => {
+                console.error('Audio playback start rejected:', err);
+            });
+
+            // Prefetch next sentence audio in background to achieve 0ms gap seamless streaming
+            const nextIdx = index + 1;
+            if (nextIdx < this.sentences.length) {
+                this.prefetchAudio.src = this.getAudioUrl(nextIdx);
+                this.prefetchAudio.load();
+            }
+        }
+    }
 
     // ── Auth Token Management ─────────────────────────────────────────────────
 
@@ -118,11 +597,22 @@ document.addEventListener('DOMContentLoaded', () => {
         onTokenSaved = callback || null;
         tokenError.textContent = '';
         tokenInput.value = getToken();
+        
+        // Populate the default neural TTS voice settings dropdown from localStorage
+        const storedSpeaker = localStorage.getItem('tts_speaker') || 'angus';
+        if (settingsVoiceSelect) {
+            settingsVoiceSelect.value = storedSpeaker;
+        }
+
         tokenModal.classList.remove('hidden');
         tokenInput.focus();
     }
 
     function hideTokenModal() {
+        if (!getToken()) {
+            tokenError.textContent = 'An API Token is required to connect to the Parse backend.';
+            return;
+        }
         tokenModal.classList.add('hidden');
         onTokenSaved = null;
     }
@@ -134,6 +624,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         localStorage.setItem('parse_token', value);
+
+        // Save the chosen voice
+        if (settingsVoiceSelect) {
+            const voice = settingsVoiceSelect.value;
+            localStorage.setItem('tts_speaker', voice);
+            if (ttsController) {
+                ttsController.selectedSpeaker = voice;
+                ttsController.voiceSelect.value = voice;
+            }
+        }
+
         updateAuthClass();
         hideTokenModal();
         if (onTokenSaved) onTokenSaved();
@@ -143,6 +644,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') tokenSaveBtn.click();
     });
 
+    if (settingsCloseBtn) {
+        settingsCloseBtn.addEventListener('click', () => hideTokenModal());
+    }
+    
+    if (tokenCancelBtn) {
+        tokenCancelBtn.addEventListener('click', () => hideTokenModal());
+    }
+
+    tokenModal.addEventListener('click', (e) => {
+        if (e.target === tokenModal) {
+            hideTokenModal();
+        }
+    });
+
     settingsBtn.addEventListener('click', () => showTokenModal());
 
     // ── Initialization ─────────────────────────────────────────────────────────
@@ -150,6 +665,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
 
     updateAuthClass();
+
+    // Instantiate TTS Engine
+    ttsController = new TTSController();
 
     // Handle PWA Web Share Target: /share?url=...
     if (location.pathname === '/share') {
@@ -183,9 +701,18 @@ document.addEventListener('DOMContentLoaded', () => {
     parseForm.addEventListener('submit', handleParse);
     btnBack.addEventListener('click', showDashboard);
     btnUnsubscribe.addEventListener('click', () => runUnsubscribe(currentArticleId, btnUnsubscribe));
+    btnSummarize.addEventListener('click', () => runSummarize(currentArticleId, btnSummarize));
     btnArchive.addEventListener('click', () => archiveArticle(currentArticleId, !currentArticleArchived, btnArchive, true));
     btnDelete.addEventListener('click', () => deleteArticle(currentArticleId, btnDelete, true));
     searchInput.addEventListener('input', handleSearch);
+
+    // Bind Listen Aloud button
+    btnTts.addEventListener('click', () => {
+        if (ttsController) {
+            ttsController.showPlayer();
+            ttsController.play();
+        }
+    });
 
     filterToggle.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -231,6 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Navigation ─────────────────────────────────────────────────────────────
 
     function showDashboard() {
+        if (ttsController) ttsController.stop();
         viewArticle.classList.remove('active');
         setTimeout(() => viewDashboard.classList.add('active'), FADE_MS);
         history.pushState(null, '', '/');
@@ -360,15 +888,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             document.title = `${payload.title} | Parse`;
 
+            const summaryHtml = data.summary ? renderSummary(data.summary) : '';
+
             readerContent.innerHTML = `
                 <h1>${payload.title}</h1>
                 <p style="color: var(--accent); margin-bottom: 2rem;">By ${payload.byline || 'Unknown Author'}</p>
+                <div id="summary-container">${summaryHtml}</div>
                 <div class="article-body">
                     ${payload.content}
                 </div>
             `;
 
+            // Setup text parsing and prepare TTS sentences
+            if (ttsController) {
+                ttsController.parseArticle(id, payload.title, data.author || payload.byline, payload.content);
+            }
+
             btnUnsubscribe.hidden = !data.unsubscribe_link;
+            btnSummarize.disabled = false;
             currentArticleArchived = !!data.archived;
             btnArchive.textContent = currentArticleArchived ? 'Unarchive' : 'Archive';
 
@@ -434,6 +971,126 @@ document.addEventListener('DOMContentLoaded', () => {
                 // mailto: link so the user can send the unsubscribe from their client.
                 const address = data.link.replace(/^mailto:/i, '').split('?')[0];
                 showLinkToast('Unsubscribe by email:', address, data.link);
+            }
+        });
+    }
+
+    function renderSummary(summaryText) {
+        if (!summaryText) return '';
+        
+        const lines = summaryText.split('\n');
+        let html = '';
+        let inList = false;
+        
+        for (let line of lines) {
+            let trimmed = line.trim();
+            
+            // Handle Headings (e.g. ### (1) Main points)
+            const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+            if (headingMatch) {
+                if (inList) {
+                    html += '</ul>';
+                    inList = false;
+                }
+                const level = headingMatch[1].length;
+                const text = headingMatch[2];
+                const formattedText = parseInlineMarkdown(text);
+                html += `<h${level}>${formattedText}</h${level}>`;
+                continue;
+            }
+            
+            // Handle Bullet Points (e.g. * Bold text: or - Bold text:)
+            const bulletMatch = trimmed.match(/^[\*\-\+]\s+(.+)$/);
+            if (bulletMatch) {
+                if (!inList) {
+                    html += '<ul>';
+                    inList = true;
+                }
+                const text = bulletMatch[1];
+                const formattedText = parseInlineMarkdown(text);
+                html += `<li>${formattedText}</li>`;
+                continue;
+            }
+            
+            // Handle empty line
+            if (trimmed === '') {
+                if (inList) {
+                    html += '</ul>';
+                    inList = false;
+                }
+                continue;
+            }
+            
+            // Handle normal text line
+            if (inList) {
+                html += '</ul>';
+                inList = false;
+            }
+            const formattedText = parseInlineMarkdown(trimmed);
+            html += `<p>${formattedText}</p>`;
+        }
+        
+        if (inList) {
+            html += '</ul>';
+        }
+        
+        function parseInlineMarkdown(text) {
+            return text
+                // Escape HTML chars
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                // Restore strong brackets for tags we will add
+                .replace(/&lt;strong&gt;/g, '<strong>').replace(/&lt;\/strong&gt;/g, '</strong>')
+                .replace(/&lt;em&gt;/g, '<em>').replace(/&lt;\/em&gt;/g, '</em>')
+                .replace(/&lt;code&gt;/g, '<code>').replace(/&lt;\/code&gt;/g, '</code>')
+                // Bold **text** or __text__
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/__(.+?)__/g, '<strong>$1</strong>')
+                // Italic *text* or _text_
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/_(.+?)_/g, '<em>$1</em>')
+                // Code blocks `code`
+                .replace(/`(.+?)`/g, '<code>$1</code>');
+        }
+        
+        return `
+            <details class="summary-details details-collapsible" open>
+                <summary><strong>AI Summary</strong></summary>
+                <div class="summary-content">${html}</div>
+            </details>
+        `;
+    }
+
+    async function runSummarize(id, btn) {
+        if (!id) return;
+        
+        // Show loading state
+        const container = document.getElementById('summary-container');
+        if (container && !container.innerHTML) {
+            container.innerHTML = `
+                <div class="summary-loading">
+                    <div class="spinner small"></div>
+                    <span>Generating summary...</span>
+                </div>
+            `;
+        }
+
+        return withButton(btn, async () => {
+            const res = await authFetch(`/api/articles/${id}/summarize`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) {
+                if (container) container.innerHTML = '';
+                showToast(data.error || 'Failed to generate summary', 'error');
+                return;
+            }
+            showToast('Summary generated ✓');
+            
+            if (container) {
+                container.innerHTML = renderSummary(data.summary);
+                // Auto-expand the details when generated freshly
+                const details = container.querySelector('details');
+                if (details) details.open = true;
             }
         });
     }

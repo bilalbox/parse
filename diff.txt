@@ -1,0 +1,341 @@
+diff --git a/public/app.js b/public/app.js
+index d4d0080..181589c 100644
+--- a/public/app.js
++++ b/public/app.js
+@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
+     const readerContent = document.getElementById('reader-content');
+     const btnBack = document.getElementById('btn-back');
+     const btnUnsubscribe = document.getElementById('btn-unsubscribe');
++    const btnSummarize = document.getElementById('btn-summarize');
+     const btnArchive = document.getElementById('btn-archive');
+     const btnDelete = document.getElementById('btn-delete');
+     const filterToggle = document.getElementById('filter-toggle');
+@@ -183,6 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
+     parseForm.addEventListener('submit', handleParse);
+     btnBack.addEventListener('click', showDashboard);
+     btnUnsubscribe.addEventListener('click', () => runUnsubscribe(currentArticleId, btnUnsubscribe));
++    btnSummarize.addEventListener('click', () => runSummarize(currentArticleId, btnSummarize));
+     btnArchive.addEventListener('click', () => archiveArticle(currentArticleId, !currentArticleArchived, btnArchive, true));
+     btnDelete.addEventListener('click', () => deleteArticle(currentArticleId, btnDelete, true));
+     searchInput.addEventListener('input', handleSearch);
+@@ -360,15 +362,19 @@ document.addEventListener('DOMContentLoaded', () => {
+ 
+             document.title = `${payload.title} | Parse`;
+ 
++            const summaryHtml = data.summary ? renderSummary(data.summary) : '';
++
+             readerContent.innerHTML = `
+                 <h1>${payload.title}</h1>
+                 <p style="color: var(--accent); margin-bottom: 2rem;">By ${payload.byline || 'Unknown Author'}</p>
++                <div id="summary-container">${summaryHtml}</div>
+                 <div class="article-body">
+                     ${payload.content}
+                 </div>
+             `;
+ 
+             btnUnsubscribe.hidden = !data.unsubscribe_link;
++            btnSummarize.disabled = false;
+             currentArticleArchived = !!data.archived;
+             btnArchive.textContent = currentArticleArchived ? 'Unarchive' : 'Archive';
+ 
+@@ -438,6 +444,56 @@ document.addEventListener('DOMContentLoaded', () => {
+         });
+     }
+ 
++    function renderSummary(summaryText) {
++        // Convert Markdown bullets to HTML for the summary.
++        // A simple parse since the prompt asked for a markdown list.
++        const html = summaryText.replace(/\n\s*-\s*(.+)/g, '<li>$1</li>')
++                               .replace(/\n\s*\d+\.\s*(.+)/g, '<li>$1</li>')
++                               .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
++                               .replace(/<li>.*<\/li>/g, match => `<ul>${match}</ul>`)
++                               .replace(/<\/ul>\s*<ul>/g, '\n');
++        
++        return `
++            <details class="summary-details details-collapsible">
++                <summary><strong>AI Summary</strong></summary>
++                <div class="summary-content">${html}</div>
++            </details>
++        `;
++    }
++
++    async function runSummarize(id, btn) {
++        if (!id) return;
++        
++        // Show loading state
++        const container = document.getElementById('summary-container');
++        if (container && !container.innerHTML) {
++            container.innerHTML = `
++                <div class="summary-loading">
++                    <div class="spinner small"></div>
++                    <span>Generating summary...</span>
++                </div>
++            `;
++        }
++
++        return withButton(btn, async () => {
++            const res = await authFetch(`/api/articles/${id}/summarize`, { method: 'POST' });
++            const data = await res.json();
++            if (!res.ok) {
++                if (container) container.innerHTML = '';
++                showToast(data.error || 'Failed to generate summary', 'error');
++                return;
++            }
++            showToast('Summary generated ✓');
++            
++            if (container) {
++                container.innerHTML = renderSummary(data.summary);
++                // Auto-expand the details when generated freshly
++                const details = container.querySelector('details');
++                if (details) details.open = true;
++            }
++        });
++    }
++
+     // ── Archive / Delete ─────────────────────────────────────────────────────────
+ 
+     // archived: true to archive, false to unarchive.
+diff --git a/public/index.html b/public/index.html
+index 6430e4b..da7eeef 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -70,6 +70,7 @@
+                 <button id="btn-back" class="icon-btn">← Back to Library</button>
+                 <div class="reader-controls">
+                     <button class="icon-btn" id="btn-unsubscribe" title="Unsubscribe from this newsletter" hidden>Unsubscribe</button>
++                    <button class="icon-btn" id="btn-summarize" title="Summarize this article">✨</button>
+                     <button class="icon-btn" id="btn-archive" title="Archive this article">Archive</button>
+                     <button class="icon-btn btn-danger" id="btn-delete" title="Delete this article">Delete</button>
+                     <button class="icon-btn font-btn" data-action="decrease">A-</button>
+diff --git a/public/style.css b/public/style.css
+index 5b86dea..cde5c6b 100644
+--- a/public/style.css
++++ b/public/style.css
+@@ -527,19 +527,75 @@ body.authed .hero-section {
+ }
+ 
+ /* Action links recovered from emails (confirm/verify buttons Readability drops) */
+-.reader-content .parsed-action-links {
+-    margin-top: 2.5rem;
+-    padding-top: 1.5rem;
+-    border-top: 1px solid var(--border-glass);
++.reader-content .details-collapsible {
++    margin: 1.5rem 0;
++    padding: 1rem;
++    border: 1px solid var(--border-glass);
++    border-radius: 12px;
++    background: var(--bg-secondary);
+ }
+ 
+-.reader-content .parsed-action-links > p:first-child strong {
+-    display: block;
+-    font-size: 0.8em;
++.reader-content .details-collapsible > summary {
++    cursor: pointer;
++    font-weight: 600;
++    font-size: 0.9em;
++    color: var(--text-secondary);
+     text-transform: uppercase;
+     letter-spacing: 0.05em;
++    outline: none;
++    list-style: none; /* Hide default arrow in some browsers */
++}
++
++.reader-content .details-collapsible > summary::-webkit-details-marker {
++    display: none; /* Hide default arrow in webkit */
++}
++
++.reader-content .details-collapsible > summary::before {
++    content: "▶";
++    display: inline-block;
++    margin-right: 0.5rem;
++    font-size: 0.8em;
++    transition: transform 0.2s ease;
++}
++
++.reader-content .details-collapsible[open] > summary::before {
++    transform: rotate(90deg);
++}
++
++.reader-content .summary-details {
++    background: rgba(99, 102, 241, 0.05); /* Slight accent tint */
++    border: 1px solid rgba(99, 102, 241, 0.2);
++}
++
++.reader-content .summary-details > summary {
++    color: var(--accent);
++}
++
++.reader-content .summary-content {
++    margin-top: 1rem;
++    font-size: 0.95em;
++    line-height: 1.6;
++}
++
++.reader-content .summary-content ul {
++    margin-top: 0.5rem;
++    padding-left: 1.5rem;
++}
++
++.reader-content .summary-content li {
++    margin-bottom: 0.5rem;
++}
++
++.summary-loading {
++    display: flex;
++    align-items: center;
++    gap: 1rem;
++    padding: 1.5rem;
++    background: var(--bg-secondary);
++    border: 1px solid var(--border-glass);
++    border-radius: 12px;
+     color: var(--text-secondary);
+-    margin-bottom: 1rem;
++    margin: 1.5rem 0;
+ }
+ 
+ .reader-content .parsed-action-links a {
+diff --git a/schema.sql b/schema.sql
+index f75dfde..6820c9f 100644
+--- a/schema.sql
++++ b/schema.sql
+@@ -12,6 +12,7 @@ CREATE TABLE articles (
+     unsubscribe_link TEXT,
+     unsubscribe_one_click INTEGER DEFAULT 0, -- 1 when the link supports RFC 8058 one-click POST
+     archived INTEGER DEFAULT 0, -- 1 once the user archives the article out of the active library
++    summary TEXT, -- Stores the AI generated summary
+     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+ );
+ 
+diff --git a/src/index.ts b/src/index.ts
+index 3ea62c1..5f8ebe3 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -334,6 +334,54 @@ app.post('/api/articles/:id/unsubscribe', async (c) => {
+ 	return c.json({ action: 'open', link });
+ });
+ 
++// Summarize an article using Cloudflare Workers AI.
++app.post('/api/articles/:id/summarize', async (c) => {
++	const id = c.req.param('id');
++	const row = await c.env.DB.prepare('SELECT content, summary FROM articles WHERE id = ?')
++		.bind(id)
++		.first<{ content: string | null; summary: string | null }>();
++
++	if (!row) return c.json({ error: 'Not found' }, 404);
++
++	// If a summary already exists, return it
++	if (row.summary) {
++		return c.json({ summary: row.summary });
++	}
++
++	const articleContent = JSON.parse(row.content || '{}');
++	const textContent = articleContent.textContent || articleContent.content?.replace(/<[^>]+>/g, ' ') || '';
++	
++	if (!textContent) return c.json({ error: 'No content to summarize' }, 400);
++
++	// Truncate to avoid context limit issues
++	const truncatedContent = textContent.slice(0, 15000);
++
++	const prompt = `Summarize the following article/email content. Format your response strictly as a markdown list covering these three areas:
++(1) Main points
++(2) Any big surprises
++(3) Any immediately actionable tools or techniques
++
++Content:
++${truncatedContent}`;
++
++	try {
++		const result = await c.env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
++			messages: [
++				{ role: 'system', content: 'You are an expert reading assistant. Provide concise, high-signal summaries in markdown format.' },
++				{ role: 'user', content: prompt }
++			]
++		}) as { response: string };
++		
++		const summary = result.response;
++		await c.env.DB.prepare('UPDATE articles SET summary = ? WHERE id = ?').bind(summary, id).run();
++		
++		return c.json({ summary });
++	} catch (error: any) {
++		console.error('AI Error:', error);
++		return c.json({ error: 'Failed to generate summary: ' + error.message }, 500);
++	}
++});
++
+ // Archive / unarchive an article. Archived items drop out of the default
+ // library list but keep their content and images.
+ app.patch('/api/articles/:id', async (c) => {
+@@ -470,13 +518,13 @@ export default {
+ 		);
+ 		const missingImages = Array.from(originalImageSrcs).filter(src => !survivingImgSrcs.has(normalizeImageSrc(src)));
+ 		if (missingImages.length) {
+-			const section = articleDoc.createElement('div');
+-			section.setAttribute('class', 'parsed-rescued-images');
+-			const heading = articleDoc.createElement('p');
++			const section = articleDoc.createElement('details');
++			section.setAttribute('class', 'parsed-rescued-images details-collapsible');
++			const summary = articleDoc.createElement('summary');
+ 			const strong = articleDoc.createElement('strong');
+ 			strong.textContent = 'Images from this email';
+-			heading.appendChild(strong);
+-			section.appendChild(heading);
++			summary.appendChild(strong);
++			section.appendChild(summary);
+ 			for (const src of missingImages) {
+ 				const p = articleDoc.createElement('p');
+ 				const img = articleDoc.createElement('img');
+@@ -531,13 +579,13 @@ export default {
+ 		);
+ 		const missing = actionLinks.filter((l) => !survivingHrefs.has(l.href));
+ 		if (missing.length) {
+-			const section = articleDoc.createElement('div');
+-			section.setAttribute('class', 'parsed-action-links');
+-			const heading = articleDoc.createElement('p');
++			const section = articleDoc.createElement('details');
++			section.setAttribute('class', 'parsed-action-links details-collapsible');
++			const summary = articleDoc.createElement('summary');
+ 			const strong = articleDoc.createElement('strong');
+ 			strong.textContent = 'Links from this email';
+-			heading.appendChild(strong);
+-			section.appendChild(heading);
++			summary.appendChild(strong);
++			section.appendChild(summary);
+ 			for (const { href, text } of missing) {
+ 				const p = articleDoc.createElement('p');
+ 				const a = articleDoc.createElement('a');
+diff --git a/worker-configuration.d.ts b/worker-configuration.d.ts
+index 1487041..b9fa090 100644
+--- a/worker-configuration.d.ts
++++ b/worker-configuration.d.ts
+@@ -1,11 +1,12 @@
+ /* eslint-disable */
+-// Generated by Wrangler by running `wrangler types` (hash: 44d1d15a8aa675222a5ff228c4b052b8)
++// Generated by Wrangler by running `wrangler types` (hash: 16929e3464a78c81d357a0b03406063f)
+ // Runtime types generated with workerd@1.20260526.1 2026-05-28 global_fetch_strictly_public,nodejs_compat
+ interface __BaseEnv_Env {
+ 	MEDIA_BUCKET: R2Bucket;
+ 	DB: D1Database;
+ 	PARSE_QUEUE: Queue;
+ 	BROWSER: Fetcher;
++	AI: Ai;
+ 	PARSE_TOKEN: string;
+ }
+ declare namespace Cloudflare {
+diff --git a/wrangler.jsonc b/wrangler.jsonc
+index 11e9b99..f4eea47 100644
+--- a/wrangler.jsonc
++++ b/wrangler.jsonc
+@@ -82,6 +82,12 @@
+ 	"browser": {
+ 		"binding": "BROWSER"
+ 	},
++	/**
++	 * Cloudflare Workers AI Binding
++	 */
++	"ai": {
++		"binding": "AI"
++	},
+ 	/**
+ 	 * Cloudflare Queues
+ 	 * https://developers.cloudflare.com/queues/

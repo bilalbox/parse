@@ -83,6 +83,12 @@
 		"binding": "BROWSER"
 	},
 	/**
+	 * Cloudflare Workers AI Binding
+	 */
+	"ai": {
+		"binding": "AI"
+	},
+	/**
 	 * Cloudflare Queues
 	 * https://developers.cloudflare.com/queues/
 	 */

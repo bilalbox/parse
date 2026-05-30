@@ -11,14 +11,16 @@ const app = new Hono<{ Bindings: AppEnv }>();
 
 // Protect all API routes with a Bearer token when PARSE_TOKEN is configured.
 // Skip auth in dev/local if the secret is not set.
+// Supports query string '?token=...' for native browser elements (like audio tags).
 const requireAuth = createMiddleware<{ Bindings: AppEnv }>(async (c, next) => {
 	const token = c.env.PARSE_TOKEN;
 	if (!token) return next();
 	const auth = c.req.header('Authorization');
-	if (auth !== `Bearer ${token}`) {
-		return c.json({ error: 'Unauthorized' }, 401);
+	const queryToken = c.req.query('token');
+	if (auth === `Bearer ${token}` || queryToken === token) {
+		return next();
 	}
-	return next();
+	return c.json({ error: 'Unauthorized' }, 401);
 });
 
 app.use('/api/*', requireAuth);
@@ -334,6 +336,86 @@ app.post('/api/articles/:id/unsubscribe', async (c) => {
 	return c.json({ action: 'open', link });
 });
 
+// Summarize an article using Cloudflare Workers AI.
+app.post('/api/articles/:id/summarize', async (c) => {
+	const id = c.req.param('id');
+	const row = await c.env.DB.prepare('SELECT content, summary FROM articles WHERE id = ?')
+		.bind(id)
+		.first<{ content: string | null; summary: string | null }>();
+
+	if (!row) return c.json({ error: 'Not found' }, 404);
+
+	// If a summary already exists, return it
+	if (row.summary) {
+		return c.json({ summary: row.summary });
+	}
+
+	const articleContent = JSON.parse(row.content || '{}');
+	const textContent = articleContent.textContent || articleContent.content?.replace(/<[^>]+>/g, ' ') || '';
+	
+	if (!textContent) return c.json({ error: 'No content to summarize' }, 400);
+
+	// Truncate to avoid context limit issues
+	const truncatedContent = textContent.slice(0, 15000);
+
+	const prompt = `Summarize the following article/email content. Format your response strictly as a markdown list covering these three areas:
+(1) Main points
+(2) Any big surprises
+(3) Any immediately actionable tools or techniques
+
+Content:
+${truncatedContent}`;
+
+	try {
+		const result = await c.env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
+			messages: [
+				{ role: 'system', content: 'You are an expert reading assistant. Provide concise, high-signal summaries in markdown format.' },
+				{ role: 'user', content: prompt }
+			]
+		}) as any;
+		
+		const summary = result?.response || result?.choices?.[0]?.message?.content || result?.result;
+		if (!summary) {
+			throw new Error('AI response did not contain a valid summary');
+		}
+
+		await c.env.DB.prepare('UPDATE articles SET summary = ? WHERE id = ?').bind(summary, id).run();
+		
+		return c.json({ summary });
+	} catch (error: any) {
+		console.error('AI Error:', error);
+		return c.json({ error: 'Failed to generate summary: ' + error.message }, 500);
+	}
+});
+
+// Endpoint to generate synthesized audio for a text string using Cloudflare Workers AI Aura model
+app.get('/api/articles/:id/audio', async (c) => {
+	const text = c.req.query('text');
+	const speaker = c.req.query('speaker') || 'angus';
+	if (!text) return c.json({ error: 'Text is required' }, 400);
+
+	try {
+		// Run Cloudflare Workers AI Aura-1 TTS (cast to bypass wrangler type omissions)
+		const response = await (c.env.AI as any).run('@cf/deepgram/aura-1', {
+			text: text.trim(),
+			speaker: speaker,
+		}, {
+			returnRawResponse: true
+		}) as any as Response;
+
+		// Return the binary audio stream
+		const headers = new Headers();
+		headers.set('Content-Type', 'audio/wav');
+		// Cache this exact sentence audio for 1 year in Cloudflare CDN (immutable)
+		headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+
+		return new Response(response.body, { headers });
+	} catch (error: any) {
+		console.error('Workers AI TTS Error:', error);
+		return c.json({ error: 'Failed to synthesize speech: ' + error.message }, 500);
+	}
+});
+
 // Archive / unarchive an article. Archived items drop out of the default
 // library list but keep their content and images.
 app.patch('/api/articles/:id', async (c) => {
@@ -470,13 +552,13 @@ export default {
 		);
 		const missingImages = Array.from(originalImageSrcs).filter(src => !survivingImgSrcs.has(normalizeImageSrc(src)));
 		if (missingImages.length) {
-			const section = articleDoc.createElement('div');
-			section.setAttribute('class', 'parsed-rescued-images');
-			const heading = articleDoc.createElement('p');
+			const section = articleDoc.createElement('details');
+			section.setAttribute('class', 'parsed-rescued-images details-collapsible');
+			const summary = articleDoc.createElement('summary');
 			const strong = articleDoc.createElement('strong');
 			strong.textContent = 'Images from this email';
-			heading.appendChild(strong);
-			section.appendChild(heading);
+			summary.appendChild(strong);
+			section.appendChild(summary);
 			for (const src of missingImages) {
 				const p = articleDoc.createElement('p');
 				const img = articleDoc.createElement('img');
@@ -531,13 +613,13 @@ export default {
 		);
 		const missing = actionLinks.filter((l) => !survivingHrefs.has(l.href));
 		if (missing.length) {
-			const section = articleDoc.createElement('div');
-			section.setAttribute('class', 'parsed-action-links');
-			const heading = articleDoc.createElement('p');
+			const section = articleDoc.createElement('details');
+			section.setAttribute('class', 'parsed-action-links details-collapsible');
+			const summary = articleDoc.createElement('summary');
 			const strong = articleDoc.createElement('strong');
 			strong.textContent = 'Links from this email';
-			heading.appendChild(strong);
-			section.appendChild(heading);
+			summary.appendChild(strong);
+			section.appendChild(summary);
 			for (const { href, text } of missing) {
 				const p = articleDoc.createElement('p');
 				const a = articleDoc.createElement('a');

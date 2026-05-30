@@ -12,6 +12,7 @@ CREATE TABLE articles (
     unsubscribe_link TEXT,
     unsubscribe_one_click INTEGER DEFAULT 0, -- 1 when the link supports RFC 8058 one-click POST
     archived INTEGER DEFAULT 0, -- 1 once the user archives the article out of the active library
+    summary TEXT, -- Stores the AI generated summary
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
