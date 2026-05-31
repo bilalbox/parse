@@ -216,7 +216,17 @@ document.addEventListener('DOMContentLoaded', () => {
             this.audio = document.getElementById('tts-audio');
             this.prefetchAudio = new Audio();
 
+            this.isArabicContent = false;
+
             this.initListeners();
+
+            // Re-populate voices when browser speech voices are loaded asynchronously
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    this.initVoices();
+                };
+            }
+
             this.initVoices();
         }
 
@@ -228,15 +238,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.selectedSpeed = parseFloat(e.target.value);
                 this.audio.playbackRate = this.selectedSpeed;
                 this.prefetchAudio.playbackRate = this.selectedSpeed;
+                
+                // If local speech synthesis is active, restart current sentence immediately with new speed
+                if (this.isPlaying && this.isLocal) {
+                    this.playSentence(this.currentIndex);
+                }
             });
             
             this.voiceSelect.addEventListener('change', (e) => {
                 this.selectedSpeaker = e.target.value;
-                localStorage.setItem('tts_speaker', this.selectedSpeaker);
+                if (this.isArabicContent) {
+                    localStorage.setItem('tts_speaker_ar', this.selectedSpeaker);
+                } else {
+                    localStorage.setItem('tts_speaker', this.selectedSpeaker);
+                }
+                
                 if (this.isPlaying) {
                     this.playSentence(this.currentIndex);
                 } else if (this.currentIndex >= 0 && this.currentIndex < this.sentences.length) {
-                    this.audio.src = this.getAudioUrl(this.currentIndex);
+                    if (this.isLocal) {
+                        this.stopNativeAudio();
+                    } else {
+                        this.audio.src = this.getAudioUrl(this.currentIndex);
+                    }
                 }
             });
             
@@ -259,21 +283,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Bind listeners to the real HTML5 Audio Element
             this.audio.addEventListener('play', () => {
                 this.isPlaying = true;
-                this.playPauseBtn.textContent = '⏸';
-                this.playPauseBtn.title = 'Pause';
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.playbackState = 'playing';
-                }
+                this.setPlayButton(true);
+                this.setMediaPlaybackState('playing');
             });
 
             this.audio.addEventListener('pause', () => {
                 if (this.audio.ended) return; // Ignore native pause events dispatched during track ending
                 this.isPlaying = false;
-                this.playPauseBtn.textContent = '▶';
-                this.playPauseBtn.title = 'Play';
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.playbackState = 'paused';
-                }
+                this.setPlayButton(false);
+                this.setMediaPlaybackState('paused');
             });
 
             this.audio.addEventListener('ended', () => {
@@ -298,26 +316,75 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         initVoices() {
-            // Curated list of deep neural speaker profiles available on Workers AI Deepgram Aura-1
-            const speakers = [
-                { id: 'angus', name: '🌟 Angus (Male - Natural)' },
-                { id: 'asteria', name: '🌟 Asteria (Female - Expressive)' },
-                { id: 'arcas', name: '🌟 Arcas (Male - Crisp)' },
-                { id: 'orion', name: '🌟 Orion (Male - Professional)' },
-                { id: 'hera', name: '🌟 Hera (Female - Conversational)' },
-                { id: 'zeus', name: '🌟 Zeus (Male - Dynamic)' }
-            ];
-
             this.voiceSelect.innerHTML = '';
-            speakers.forEach(voice => {
-                const option = document.createElement('option');
-                option.value = voice.id;
-                option.textContent = voice.name;
-                this.voiceSelect.appendChild(option);
-            });
 
-            this.selectedSpeaker = localStorage.getItem('tts_speaker') || 'angus';
-            this.voiceSelect.value = this.selectedSpeaker;
+            if (this.isArabicContent) {
+                // Fetch local Arabic voices via Web Speech API
+                let localArabicVoices = [];
+                if ('speechSynthesis' in window) {
+                    localArabicVoices = window.speechSynthesis.getVoices().filter(voice => {
+                        const lang = voice.lang.toLowerCase();
+                        const name = voice.name.toLowerCase();
+                        return lang.startsWith('ar') || name.includes('arabic') || name.includes('العربية');
+                    });
+                }
+
+                if (localArabicVoices.length > 0) {
+                    // Populate with the found local Arabic voices
+                    localArabicVoices.forEach(voice => {
+                        const option = document.createElement('option');
+                        option.value = 'local:' + voice.name;
+                        
+                        // Give it a premium, descriptive name
+                        let displayName;
+                        if (voice.name.toLowerCase().includes('google')) {
+                            displayName = `🌟 Google Neural Arabic (Local)`;
+                        } else if (voice.localService) {
+                            displayName = `📱 Native ${voice.name} (Local)`;
+                        } else {
+                            displayName = `🗣️ ${voice.name} (Local)`;
+                        }
+                        
+                        option.textContent = displayName;
+                        this.voiceSelect.appendChild(option);
+                    });
+                } else {
+                    // Fallback option if getVoices is empty (sometimes async) or no Arabic voice is installed
+                    const option = document.createElement('option');
+                    option.value = 'local:default-arabic';
+                    option.textContent = '🌟 Google Neural Arabic (Local Fallback)';
+                    this.voiceSelect.appendChild(option);
+                }
+                
+                // Set default speaker for Arabic
+                const storedArabicSpeaker = localStorage.getItem('tts_speaker_ar');
+                if (storedArabicSpeaker && this.voiceSelect.querySelector(`option[value="${storedArabicSpeaker}"]`)) {
+                    this.selectedSpeaker = storedArabicSpeaker;
+                } else {
+                    this.selectedSpeaker = this.voiceSelect.options[0]?.value || 'local:default-arabic';
+                }
+                this.voiceSelect.value = this.selectedSpeaker;
+            } else {
+                // Curated list of deep neural speaker profiles available on Workers AI Deepgram Aura-1
+                const speakers = [
+                    { id: 'angus', name: '🌟 Angus (Male - Natural)' },
+                    { id: 'asteria', name: '🌟 Asteria (Female - Expressive)' },
+                    { id: 'arcas', name: '🌟 Arcas (Male - Crisp)' },
+                    { id: 'orion', name: '🌟 Orion (Male - Professional)' },
+                    { id: 'hera', name: '🌟 Hera (Female - Conversational)' },
+                    { id: 'zeus', name: '🌟 Zeus (Male - Dynamic)' }
+                ];
+
+                speakers.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.id;
+                    option.textContent = voice.name;
+                    this.voiceSelect.appendChild(option);
+                });
+
+                this.selectedSpeaker = localStorage.getItem('tts_speaker') || 'angus';
+                this.voiceSelect.value = this.selectedSpeaker;
+            }
         }
 
         getAudioUrl(index) {
@@ -326,6 +393,37 @@ document.addEventListener('DOMContentLoaded', () => {
             const speaker = this.selectedSpeaker || 'angus';
             const token = getToken();
             return `/api/articles/${this.articleId}/audio?text=${encodeURIComponent(text)}&speaker=${encodeURIComponent(speaker)}&token=${encodeURIComponent(token)}`;
+        }
+
+        // True when the selected voice is a browser Web Speech voice (synthesized
+        // on-device) rather than a server-rendered Workers AI audio stream.
+        get isLocal() {
+            return this.selectedSpeaker.startsWith('local:');
+        }
+
+        // Reset the play/pause button glyph + label to reflect playback state.
+        setPlayButton(playing) {
+            this.playPauseBtn.textContent = playing ? '⏸' : '▶';
+            this.playPauseBtn.title = playing ? 'Pause' : 'Play';
+        }
+
+        setMediaPlaybackState(state) {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = state;
+            }
+        }
+
+        cancelLocalSpeech() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        // Halt and unload the native <audio> element.
+        stopNativeAudio() {
+            this.audio.pause();
+            this.audio.removeAttribute('src');
+            this.audio.load();
         }
 
         setupMediaSession() {
@@ -361,6 +459,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const body = document.querySelector('#reader-content .article-body');
             if (!body) return;
+
+            // Detect if content is Arabic
+            const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+            this.isArabicContent = arabicPattern.test(body.textContent || '') || arabicPattern.test(title || '');
+
+            // Apply RTL settings
+            const readerEl = document.getElementById('reader-content');
+            if (readerEl) {
+                readerEl.classList.toggle('rtl-content', this.isArabicContent);
+                if (this.isArabicContent) {
+                    readerEl.setAttribute('dir', 'rtl');
+                } else {
+                    readerEl.removeAttribute('dir');
+                }
+            }
+
+            // Re-initialize voices dropdown for the current content
+            this.initVoices();
 
             this.sentences = prepareTtsContent(body);
             this.currentIndex = 0;
@@ -408,23 +524,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         pause() {
             this.isPlaying = false;
-            this.audio.pause();
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.playbackState = 'paused';
+            if (this.isLocal) {
+                // SpeechSynthesis fires no audio events, so reset the UI by hand.
+                this.cancelLocalSpeech();
+                this.setPlayButton(false);
+                this.setMediaPlaybackState('paused');
+            } else {
+                this.audio.pause();
             }
         }
 
         stop() {
             this.isPlaying = false;
-            this.audio.pause();
-            this.audio.removeAttribute('src'); // Unloads the audio
-            this.audio.load();
+            this.cancelLocalSpeech();
+            this.stopNativeAudio();
             this.clearHighlight();
             this.currentIndex = 0;
             this.updateProgress();
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.playbackState = 'none';
-            }
+            this.setPlayButton(false);
+            this.setMediaPlaybackState('none');
         }
 
         jumpToSentence(index) {
@@ -437,7 +555,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.highlightSentence(index);
                 const el = this.sentences[index]?.elements[0];
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                this.audio.src = this.getAudioUrl(index);
+
+                if (this.isLocal) {
+                    this.stopNativeAudio();
+                } else {
+                    this.audio.src = this.getAudioUrl(index);
+                }
             }
         }
 
@@ -496,20 +619,74 @@ document.addEventListener('DOMContentLoaded', () => {
 
             this.updateProgress();
 
-            const url = this.getAudioUrl(index);
-            this.audio.src = url;
-            this.audio.load();
-            this.audio.playbackRate = this.selectedSpeed;
-            
-            this.audio.play().catch(err => {
-                console.error('Audio playback start rejected:', err);
-            });
+            if (this.isLocal) {
+                // Stop any playing audio and cancel any ongoing local speech
+                this.stopNativeAudio();
+                this.cancelLocalSpeech();
 
-            // Prefetch next sentence audio in background to achieve 0ms gap seamless streaming
-            const nextIdx = index + 1;
-            if (nextIdx < this.sentences.length) {
-                this.prefetchAudio.src = this.getAudioUrl(nextIdx);
-                this.prefetchAudio.load();
+                // Synthesize locally
+                const utterance = new SpeechSynthesisUtterance(sentence.text);
+                
+                if ('speechSynthesis' in window) {
+                    const voiceName = this.selectedSpeaker.replace('local:', '');
+                    const voices = window.speechSynthesis.getVoices();
+                    const matchedVoice = voices.find(v => v.name === voiceName) || 
+                                         voices.find(v => v.lang.startsWith('ar'));
+                    if (matchedVoice) {
+                        utterance.voice = matchedVoice;
+                    } else {
+                        utterance.lang = 'ar-SA';
+                    }
+                }
+
+                utterance.rate = this.selectedSpeed;
+
+                // UI updates (since audio events won't fire)
+                this.isPlaying = true;
+                this.setPlayButton(true);
+                this.setMediaPlaybackState('playing');
+
+                utterance.onend = () => {
+                    if (this.isPlaying && this.currentIndex === index) {
+                        this.clearHighlight();
+                        this.currentIndex++;
+                        if (this.currentIndex < this.sentences.length) {
+                            this.playSentence(this.currentIndex);
+                        } else {
+                            this.stop();
+                        }
+                    }
+                };
+
+                utterance.onerror = (e) => {
+                    console.error('SpeechSynthesis error:', e);
+                    if (e.error !== 'interrupted' && this.isPlaying) {
+                        this.stop();
+                    }
+                };
+
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.speak(utterance);
+                }
+            } else {
+                // Stop any active SpeechSynthesis
+                this.cancelLocalSpeech();
+
+                const url = this.getAudioUrl(index);
+                this.audio.src = url;
+                this.audio.load();
+                this.audio.playbackRate = this.selectedSpeed;
+                
+                this.audio.play().catch(err => {
+                    console.error('Audio playback start rejected:', err);
+                });
+
+                // Prefetch next sentence audio in background to achieve 0ms gap seamless streaming
+                const nextIdx = index + 1;
+                if (nextIdx < this.sentences.length) {
+                    this.prefetchAudio.src = this.getAudioUrl(nextIdx);
+                    this.prefetchAudio.load();
+                }
             }
         }
     }

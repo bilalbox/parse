@@ -1,0 +1,28 @@
+# parse
+
+A read-it-later worker that turns messy web pages and inbound newsletters into clean, stored Articles.
+
+## Language
+
+**Article**:
+A single saved, reader-ready item — the cleaned content (a Readability result) plus its metadata (title, author, url, source type, unsubscribe info). The unit the library lists, reads, summarizes, archives, and deletes.
+
+**Source**:
+The seam in front of the extraction spine. One adapter per ingest path (`WebSource`, `EmailSource`) supplies the raw HTML and the three things that differ per path: how an image `src` resolves to bytes, what content Readability dropped that must be rescued, and where an Article's metadata comes from.
+_Avoid_: provider, channel, ingestor
+
+**Extraction spine**:
+The single shared pipeline (`extractArticle`) that every Source flows through: preprocess the DOM, run Readability, let the Source rescue dropped content, mediate images, and produce an Article. Deep module — most of the product's value lives here.
+_Avoid_: parser, pipeline handler
+
+**Rescue**:
+Re-attaching content Readability discarded as boilerplate — the web featured image, or an email's dropped large images and call-to-action links. Supplied by the Source as a hook over the parsed Article document.
+
+**Library**:
+The default list of active (non-archived) Articles.
+
+**Archive**:
+Moving an Article out of the library without deleting it; its content and media stay.
+
+**Media**:
+Images pulled out of an Article during extraction, uploaded to R2, and referenced in stored content as `/media/<key>`.

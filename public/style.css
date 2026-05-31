@@ -1208,3 +1208,30 @@ body.authed .hero-section {
         max-width: 150px;
     }
 }
+
+/* ── Premium Glassmorphic Arabic RTL Content ─────────────────────────────────── */
+.rtl-content {
+    direction: rtl;
+    text-align: right;
+    font-family: 'Amiri', 'Cairo', 'Lora', serif;
+    line-height: 1.9;
+}
+
+.rtl-content h1,
+.rtl-content h2,
+.rtl-content h3,
+.rtl-content h4,
+.rtl-content h5,
+.rtl-content h6 {
+    font-family: 'Cairo', 'Outfit', sans-serif;
+    text-align: right;
+    letter-spacing: normal;
+}
+
+.rtl-content blockquote {
+    border-left: none !important;
+    border-right: 4px solid var(--accent) !important;
+    padding-left: 0 !important;
+    padding-right: 1.5rem !important;
+    font-style: normal;
+}
