@@ -2,55 +2,40 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
     <title>Parse | Edge Reading</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Lora:ital,wght@0,400;0,600;1,400&family=Amiri:ital,wght@0,400;0,700;1,400&family=Cairo:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Amiri:ital,wght@0,400;0,700;1,400&family=Cairo:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <div id="app-container">
         <!-- Dashboard View -->
         <main id="view-dashboard" class="view active">
-            <header class="glass-header">
-                <div class="logo">Parse<span>.edge</span></div>
+            <header class="app-header">
+                <div class="logo">PARSE</div>
                 <div class="header-actions">
-                    <button class="icon-btn" id="settings-btn" title="API Token Settings">⚙</button>
-                    <div class="theme-toggle" id="theme-toggle">🌓</div>
+                    <button class="icon-btn" id="add-btn" title="Add URL">┼</button>
+                    <button class="icon-btn" id="settings-btn" title="Settings">⚙</button>
+                    <div class="theme-toggle" id="theme-toggle">◑</div>
                 </div>
             </header>
 
-            <section class="hero-section">
-                <h1 class="hero-title">Read the web,<br><span class="gradient-text">without the noise.</span></h1>
-                <p class="hero-subtitle">Instantly parse any article into a beautiful, distraction-free reading experience rendered entirely on Cloudflare's edge network.</p>
-                
-                <form id="parse-form" class="parse-form">
-                    <div class="input-group">
-                        <input type="url" id="url-input" placeholder="Paste article URL here (e.g. https://medium.com/...)" required>
-                        <button type="submit" id="submit-btn">
-                            <span class="btn-text">Parse It</span>
-                            <div class="spinner hidden"></div>
-                        </button>
-                    </div>
-                    <div id="error-message" class="error-msg"></div>
-                </form>
-            </section>
-
             <section class="library-section">
                 <div class="library-header">
-                    <h2>Your Library</h2>
+                    <h2>Library</h2>
                     <div class="library-tools">
                         <div class="filter-toggle" id="filter-toggle">
                             <button class="filter-btn active" data-filter="active">Active</button>
                             <button class="filter-btn" data-filter="archived">Archived</button>
                         </div>
                         <div class="search-box">
-                            <input type="text" id="search-input" placeholder="Search library...">
-                            <span class="search-icon">🔍</span>
+                            <input type="text" id="search-input" placeholder="Search...">
                         </div>
                     </div>
                 </div>
@@ -66,14 +51,14 @@
 
         <!-- Article Reader View -->
         <main id="view-article" class="view">
-            <nav class="reader-nav">
-                <button id="btn-back" class="icon-btn">← Back to Library</button>
+            <nav class="app-header reader-header">
+                <button id="btn-back" class="icon-btn">←</button>
                 <div class="reader-controls">
-                <button class="icon-btn" id="btn-tts" title="Read Aloud">🔊 Listen</button>
-                <button class="icon-btn" id="btn-unsubscribe" title="Unsubscribe from this newsletter" hidden>Unsubscribe</button>
-                <button class="icon-btn" id="btn-summarize" title="Summarize this article">✨</button>
-                <button class="icon-btn" id="btn-archive" title="Archive this article">Archive</button>
-                <button class="icon-btn btn-danger" id="btn-delete" title="Delete this article">Delete</button>
+                <button class="icon-btn" id="btn-tts" title="Read Aloud">▶</button>
+                <button class="icon-btn" id="btn-unsubscribe" title="Unsubscribe" hidden>⊖</button>
+                <button class="icon-btn" id="btn-summarize" title="Summarize">∑</button>
+                <button class="icon-btn" id="btn-archive" title="Archive">⊘</button>
+                <button class="icon-btn btn-danger" id="btn-delete" title="Delete">✕</button>
                 <button class="icon-btn font-btn" data-action="decrease">A-</button>
                 <button class="icon-btn font-btn" data-action="increase">A+</button>
                 <button class="icon-btn font-btn" data-action="serif">T</button>
@@ -81,14 +66,70 @@
         </nav>
         
         <div id="reader-content" class="reader-content typography-sans">
-            <!-- Injected Article Content -->
             <div class="reader-loading">
                 <div class="spinner large"></div>
-                <p>Loading article...</p>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Clipping / Share View -->
+    <main id="view-clipping" class="view">
+        <div class="clipping-container">
+            <div id="clipping-spinner" class="spinner large"></div>
+            <div id="clipping-icon" class="clipping-icon hidden">✓</div>
+            <h2 id="clipping-status">Clipping...</h2>
+            <div id="clipping-error" class="error-msg hidden"></div>
+            <div class="clipping-actions hidden" id="clipping-actions">
+                <button id="btn-clip-retry" class="btn hidden">Retry</button>
+                <button id="btn-clip-library" class="btn">Go to Library</button>
             </div>
         </div>
     </main>
 </div>
+
+<!-- Add URL Bottom Sheet -->
+<div id="add-sheet" class="bottom-sheet">
+    <div class="sheet-backdrop"></div>
+    <div class="sheet-content">
+        <div class="sheet-header">
+            <h3>New Article</h3>
+            <button id="close-sheet" class="icon-btn">✕</button>
+        </div>
+        <form id="parse-form" class="parse-form">
+            <div class="input-group">
+                <input type="url" id="url-input" placeholder="https://..." required>
+                <button type="submit" id="submit-btn">
+                    <span class="btn-text">Parse</span>
+                    <div class="spinner hidden"></div>
+                </button>
+            </div>
+            <div id="error-message" class="error-msg"></div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const addBtn = document.getElementById('add-btn');
+        const addSheet = document.getElementById('add-sheet');
+        const closeSheet = document.getElementById('close-sheet');
+        const sheetBackdrop = document.querySelector('.sheet-backdrop');
+        const parseFormEl = document.getElementById('parse-form');
+        const urlInput = document.getElementById('url-input');
+        
+        const openSheet = () => { 
+            addSheet.classList.add('active'); 
+            setTimeout(() => urlInput.focus(), 100); 
+        };
+        const closeSheetFn = () => addSheet.classList.remove('active');
+        
+        addBtn.addEventListener('click', openSheet);
+        closeSheet.addEventListener('click', closeSheetFn);
+        sheetBackdrop.addEventListener('click', closeSheetFn);
+        
+        parseFormEl.addEventListener('submit', () => setTimeout(closeSheetFn, 300));
+    });
+</script>
 
 <!-- Sleek Glassmorphic Floating TTS Player Sheet -->
 <!-- Kept outside .view so its position:fixed is relative to the viewport, not a transformed ancestor -->

@@ -2,6 +2,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // UI Elements
     const viewDashboard = document.getElementById('view-dashboard');
     const viewArticle = document.getElementById('view-article');
+    const viewClipping = document.getElementById('view-clipping');
+    const clippingSpinner = document.getElementById('clipping-spinner');
+    const clippingIcon = document.getElementById('clipping-icon');
+    const clippingStatus = document.getElementById('clipping-status');
+    const clippingError = document.getElementById('clipping-error');
+    const clippingActions = document.getElementById('clipping-actions');
+    const btnClipRetry = document.getElementById('btn-clip-retry');
+    const btnClipLibrary = document.getElementById('btn-clip-library');
     const parseForm = document.getElementById('parse-form');
     const urlInput = document.getElementById('url-input');
     const submitBtn = document.getElementById('submit-btn');
@@ -47,8 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const sentences = [];
         let sentenceCount = 0;
         
-        const blockSelector = 'p, li, blockquote, h1, h2, h3, h4, h5, h6';
-        const skipSelector = '.parsed-action-links, .parsed-rescued-images, .summary-details';
+        const blockSelector = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, summary';
+        const skipSelector = '.parsed-action-links, .parsed-rescued-images';
 
         // Visit every text node under the container in document order, skipping
         // the appended "Links from this email" / "Images from this email" /
@@ -457,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const img = temp.querySelector('.featured-image-container img, img');
             this.featuredImage = img ? img.src : '';
 
-            const body = document.querySelector('#reader-content .article-body');
+            const body = document.querySelector('#tts-content-wrapper');
             if (!body) return;
 
             // Detect if content is Arabic
@@ -855,10 +863,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (sharedUrl) {
             if (!getToken()) {
-                showTokenModal(() => { updateAuthClass(); triggerShare(sharedUrl); });
+                showTokenModal(() => { updateAuthClass(); triggerClipping(sharedUrl); });
             } else {
-                triggerShare(sharedUrl);
+                triggerClipping(sharedUrl);
             }
+        } else {
+            showDashboard();
         }
     } else if (!getToken()) {
         showTokenModal(() => { updateAuthClass(); loadArticles(); });
@@ -866,14 +876,60 @@ document.addEventListener('DOMContentLoaded', () => {
         loadArticles();
     }
 
-    function triggerShare(url) {
-        urlInput.value = url;
-        loadArticles().then(() => {
-            parseForm.dispatchEvent(new Event('submit'));
-        });
+    async function triggerClipping(url) {
+        // Show clipping view
+        viewDashboard.classList.remove('active');
+        viewArticle.classList.remove('active');
+        viewClipping.classList.add('active');
+
+        clippingSpinner.classList.remove('hidden');
+        clippingIcon.classList.add('hidden');
+        clippingError.classList.add('hidden');
+        clippingActions.classList.add('hidden');
+        clippingStatus.textContent = 'Clipping...';
+
+        try {
+            const res = await authFetch('/api/queue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to queue article');
+            }
+
+            // Success
+            clippingSpinner.classList.add('hidden');
+            clippingIcon.classList.remove('hidden');
+            clippingStatus.textContent = 'Saved!';
+            clippingActions.classList.remove('hidden');
+            btnClipRetry.classList.add('hidden');
+
+            // Try to close, fallback to library button
+            setTimeout(() => {
+                try {
+                    window.close();
+                } catch (e) {}
+            }, 1500);
+
+        } catch (err) {
+            clippingSpinner.classList.add('hidden');
+            clippingStatus.textContent = 'Failed to clip';
+            clippingError.textContent = err instanceof AuthError ? 'Authentication error' : err.message;
+            clippingError.classList.remove('hidden');
+            clippingActions.classList.remove('hidden');
+            btnClipRetry.classList.remove('hidden');
+            btnClipRetry.onclick = () => triggerClipping(url);
+        }
     }
 
     // ── Event Listeners ────────────────────────────────────────────────────────
+    
+    btnClipLibrary.addEventListener('click', () => {
+        viewClipping.classList.remove('active');
+        showDashboard();
+    });
 
     parseForm.addEventListener('submit', handleParse);
     btnBack.addEventListener('click', showDashboard);
@@ -937,6 +993,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showDashboard() {
         if (ttsController) ttsController.stop();
         viewArticle.classList.remove('active');
+        viewClipping.classList.remove('active');
         setTimeout(() => viewDashboard.classList.add('active'), FADE_MS);
         history.pushState(null, '', '/');
         document.title = 'Parse | Premium Edge Reading';
@@ -944,6 +1001,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showArticle() {
         viewDashboard.classList.remove('active');
+        viewClipping.classList.remove('active');
         setTimeout(() => viewArticle.classList.add('active'), FADE_MS);
         window.scrollTo(0, 0);
     }
@@ -1070,9 +1128,11 @@ document.addEventListener('DOMContentLoaded', () => {
             readerContent.innerHTML = `
                 <h1>${payload.title}</h1>
                 <p style="color: var(--accent); margin-bottom: 2rem;">By ${payload.byline || 'Unknown Author'}</p>
-                <div id="summary-container">${summaryHtml}</div>
-                <div class="article-body">
-                    ${payload.content}
+                <div id="tts-content-wrapper">
+                    <div id="summary-container">${summaryHtml}</div>
+                    <div class="article-body">
+                        ${payload.content}
+                    </div>
                 </div>
             `;
 
@@ -1268,6 +1328,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Auto-expand the details when generated freshly
                 const details = container.querySelector('details');
                 if (details) details.open = true;
+
+                // Reload the article to sync the newly generated summary with the TTS engine
+                loadArticleView(id);
             }
         });
     }

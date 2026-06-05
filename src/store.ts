@@ -94,10 +94,11 @@ export function createArticleStore(db: D1Database): ArticleStore {
 
 		async search(query) {
 			const res = await db.prepare(`
-				SELECT id, title, snippet(articles_fts, -1, '<b>', '</b>', '...', 64) as match_snippet
-				FROM articles_fts
-				WHERE content MATCH ?
-				ORDER BY rank
+				SELECT a.id, f.title, snippet(articles_fts, -1, '<b>', '</b>', '...', 64) as match_snippet
+				FROM articles_fts f
+				JOIN articles a ON a.rowid = f.rowid
+				WHERE f.content MATCH ?
+				ORDER BY f.rank
 				LIMIT 10
 			`).bind(query).all<SearchHit>();
 			return res.results;

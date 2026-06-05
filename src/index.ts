@@ -85,6 +85,29 @@ app.post('/api/articles/:id/unsubscribe', async (c) => {
 	return c.json({ action: 'open', link });
 });
 
+async function generateArticleSummary(env: AppEnv, id: string, textContent: string): Promise<string> {
+	const prompt = `Summarize the following article/email content. Format your response strictly as a markdown list covering these three areas:
+(1) Main points
+(2) Any big surprises
+(3) Any immediately actionable tools or techniques
+
+Content:
+${textContent.slice(0, 15000)}`;
+
+	const result = await env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
+		messages: [
+			{ role: 'system', content: 'You are an expert reading assistant. Provide concise, high-signal summaries in markdown format.' },
+			{ role: 'user', content: prompt }
+		]
+	}) as any;
+
+	const summary = result?.response || result?.choices?.[0]?.message?.content || result?.result;
+	if (!summary) throw new Error('AI response did not contain a valid summary');
+
+	await createArticleStore(env.DB).saveSummary(id, summary);
+	return summary;
+}
+
 // Summarize an article using Cloudflare Workers AI.
 app.post('/api/articles/:id/summarize', async (c) => {
 	const id = c.req.param('id');
@@ -101,32 +124,8 @@ app.post('/api/articles/:id/summarize', async (c) => {
 	const textContent = articlePlainText(row.content);
 	if (!textContent) return c.json({ error: 'No content to summarize' }, 400);
 
-	// Truncate to avoid context limit issues
-	const truncatedContent = textContent.slice(0, 15000);
-
-	const prompt = `Summarize the following article/email content. Format your response strictly as a markdown list covering these three areas:
-(1) Main points
-(2) Any big surprises
-(3) Any immediately actionable tools or techniques
-
-Content:
-${truncatedContent}`;
-
 	try {
-		const result = await c.env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
-			messages: [
-				{ role: 'system', content: 'You are an expert reading assistant. Provide concise, high-signal summaries in markdown format.' },
-				{ role: 'user', content: prompt }
-			]
-		}) as any;
-
-		const summary = result?.response || result?.choices?.[0]?.message?.content || result?.result;
-		if (!summary) {
-			throw new Error('AI response did not contain a valid summary');
-		}
-
-		await store.saveSummary(id, summary);
-
+		const summary = await generateArticleSummary(c.env, id, textContent);
 		return c.json({ summary });
 	} catch (error: any) {
 		console.error('AI Error:', error);
@@ -240,6 +239,14 @@ export default {
 		try {
 			const article = await extractArticle(source, env.MEDIA_BUCKET);
 			await createArticleStore(env.DB).create(article);
+
+			const textContent = articlePlainText(article.content);
+			if (textContent) {
+				ctx.waitUntil(
+					generateArticleSummary(env, article.id, textContent)
+						.catch(e => console.error('Background summary generation failed:', e))
+				);
+			}
 		} catch (err) {
 			console.error('Email parse failed:', messageId, err);
 		}
