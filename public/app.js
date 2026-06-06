@@ -1101,6 +1101,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function injectInlineParseButtons(container) {
+        container.querySelectorAll('.article-body a').forEach(link => {
+            const hrefAttr = link.getAttribute('href');
+            if (!hrefAttr || hrefAttr.startsWith('#')) return;
+            if (!['http:', 'https:'].includes(link.protocol)) return;
+
+            const btn = document.createElement('button');
+            btn.className = 'inline-parse-btn';
+            btn.title = 'Save to Parse';
+            btn.innerHTML = '<span>+</span>';
+            
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (btn.disabled) return;
+                
+                btn.disabled = true;
+                try {
+                    const res = await authFetch('/api/queue', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: link.href }),
+                    });
+                    
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}));
+                        throw new Error(errData.error || 'Failed to queue article');
+                    }
+                    
+                    btn.innerHTML = '<span>✓</span>';
+                    btn.classList.add('success');
+                    showToast('Added to queue…');
+                } catch (err) {
+                    btn.disabled = false;
+                    if (!(err instanceof AuthError)) showToast(err.message, 'error');
+                }
+            });
+
+            link.parentNode.insertBefore(btn, link.nextSibling);
+        });
+    }
+
     async function loadArticleView(id) {
         currentArticleId = id;
         btnUnsubscribe.hidden = true;
@@ -1141,10 +1183,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 ttsController.parseArticle(id, payload.title, data.author || payload.byline, payload.content);
             }
 
+            injectInlineParseButtons(readerContent);
+
             btnUnsubscribe.hidden = !data.unsubscribe_link;
             btnSummarize.disabled = false;
             currentArticleArchived = !!data.archived;
-            btnArchive.textContent = currentArticleArchived ? 'Unarchive' : 'Archive';
+            btnArchive.title = currentArticleArchived ? 'Unarchive' : 'Archive';
 
             history.pushState({ id }, '', `/?article=${id}`);
 
