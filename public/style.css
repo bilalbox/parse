@@ -846,7 +846,7 @@ body:has(#view-clipping.active) #view-dashboard {
 
 .token-save-btn {
     background: var(--accent);
-    color: #fff;
+    color: var(--bg-primary);
     border: none;
     border-radius: 10px;
     padding: 0.85rem 1.5rem;
@@ -1066,7 +1066,7 @@ body:has(#view-clipping.active) #view-dashboard {
     width: 44px;
     height: 44px;
     background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-    color: white;
+    color: var(--bg-primary);
     font-size: 1.15rem;
     box-shadow: 0 4px 12px var(--accent-glow);
 }
@@ -1113,6 +1113,14 @@ body:has(#view-clipping.active) #view-dashboard {
 .player-select:hover {
     border-color: var(--accent);
     background: rgba(255, 255, 255, 0.08);
+}
+
+/* Ensure dropdown option lists stay readable in both themes
+   (the popup ignores the select's translucent background) */
+.player-select option,
+.settings-select option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 .select-wrapper::after {

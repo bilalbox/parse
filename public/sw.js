@@ -1,5 +1,84 @@
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
-// No fetch handler: all content is served from the edge. A passthrough
-// (respondWith(fetch(e.request))) would only add an event-loop hop per request,
-// so we let the browser handle requests directly.
+// Offline-first service worker (see docs/adr/0002).
+//
+// - The app shell is precached on install and served cache-first.
+// - Article content (GET /api/articles*) and media (GET /media/*) use
+//   network-first with a cache fallback, so they're fresh online and available
+//   offline. The page (app.js) proactively warms and prunes the runtime cache
+//   to mirror the active library.
+// - Everything else (writes, search, queue) is network-only and never cached.
+
+const SHELL_CACHE = 'parse-shell-v1';
+const RUNTIME_CACHE = 'parse-runtime-v1'; // keep in sync with RUNTIME_CACHE in app.js
+
+const SHELL_ASSETS = [
+    '/',
+    '/index.html',
+    '/app.js',
+    '/style.css',
+    '/manifest.json',
+    '/icon.svg',
+];
+
+self.addEventListener('install', (e) => {
+    e.waitUntil(
+        caches.open(SHELL_CACHE)
+            .then(cache => cache.addAll(SHELL_ASSETS))
+            .then(() => self.skipWaiting())
+    );
+});
+
+self.addEventListener('activate', (e) => {
+    e.waitUntil(
+        caches.keys()
+            .then(names => Promise.all(
+                names
+                    .filter(n => n !== SHELL_CACHE && n !== RUNTIME_CACHE)
+                    .map(n => caches.delete(n))
+            ))
+            .then(() => self.clients.claim())
+    );
+});
+
+// Try the network, fall back to cache; cache successful GET responses.
+async function networkFirst(request) {
+    const cache = await caches.open(RUNTIME_CACHE);
+    try {
+        const response = await fetch(request);
+        if (response.ok) cache.put(request, response.clone());
+        return response;
+    } catch (err) {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        throw err;
+    }
+}
+
+self.addEventListener('fetch', (e) => {
+    const { request } = e;
+    if (request.method !== 'GET') return; // writes go straight to the network
+
+    const url = new URL(request.url);
+    if (url.origin !== self.location.origin) return;
+
+    // SPA navigations: serve the cached shell when the network is unavailable.
+    if (request.mode === 'navigate') {
+        e.respondWith(
+            fetch(request).catch(() => caches.match('/index.html'))
+        );
+        return;
+    }
+
+    // Article content and media: network-first with cache fallback for offline.
+    if (url.pathname.startsWith('/api/articles') || url.pathname.startsWith('/media/')) {
+        e.respondWith(networkFirst(request));
+        return;
+    }
+
+    // App shell assets: cache-first.
+    if (SHELL_ASSETS.includes(url.pathname)) {
+        e.respondWith(caches.match(request).then(c => c || fetch(request)));
+        return;
+    }
+
+    // Everything else: default browser handling.
+});

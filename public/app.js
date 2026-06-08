@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const tokenInput = document.getElementById('token-input');
     const tokenSaveBtn = document.getElementById('token-save-btn');
     const tokenError = document.getElementById('token-error');
-    const settingsVoiceSelect = document.getElementById('settings-voice-select');
     const settingsCloseBtn = document.getElementById('settings-close-btn');
     const tokenCancelBtn = document.getElementById('token-cancel-btn');
     const btnTts = document.getElementById('btn-tts');
@@ -47,6 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFilter = 'active';
     // View cross-fade duration; must match the CSS .view transition.
     const FADE_MS = 300;
+    // Runtime cache name — must match RUNTIME_CACHE in public/sw.js.
+    const RUNTIME_CACHE = 'parse-runtime-v1';
 
     let ttsController = null;
 
@@ -192,14 +193,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return sentences;
     }
 
-    // Class: Text-to-Speech (TTS) Engine Controller utilizing Cloudflare Workers AI edge voices
+    // Class: client-side Text-to-Speech controller. Narration is synthesized
+    // entirely in the browser via the Web Speech API, using a voice installed on
+    // the device — there is no server-rendered audio. Arabic Articles are not
+    // narrated (the player is hidden for them). See docs/adr/0001.
     class TTSController {
         constructor() {
             this.sentences = [];
             this.currentIndex = -1;
             this.isPlaying = false;
-            this.selectedSpeaker = 'angus';
+            this.selectedVoice = '';   // voice.name of the chosen on-device voice
             this.selectedSpeed = 1.0;
+            this.hasVoice = false;     // false when the device has no usable voice
+            this.currentUtterance = null; // tracked so cancel() can't fire a stale onend
             this.articleId = null;
             this.articleTitle = '';
             this.articleAuthor = '';
@@ -220,10 +226,6 @@ document.addEventListener('DOMContentLoaded', () => {
             this.rewindBtn = document.getElementById('player-rewind');
             this.forwardBtn = document.getElementById('player-forward');
             
-            // Native HTML5 audio nodes
-            this.audio = document.getElementById('tts-audio');
-            this.prefetchAudio = new Audio();
-
             this.isArabicContent = false;
 
             this.initListeners();
@@ -244,31 +246,18 @@ document.addEventListener('DOMContentLoaded', () => {
             
             this.speedSelect.addEventListener('change', (e) => {
                 this.selectedSpeed = parseFloat(e.target.value);
-                this.audio.playbackRate = this.selectedSpeed;
-                this.prefetchAudio.playbackRate = this.selectedSpeed;
-                
-                // If local speech synthesis is active, restart current sentence immediately with new speed
-                if (this.isPlaying && this.isLocal) {
+                // SpeechSynthesis can't retune a sentence mid-utterance, so if we're
+                // playing, restart the current sentence at the new rate.
+                if (this.isPlaying) {
                     this.playSentence(this.currentIndex);
                 }
             });
-            
+
             this.voiceSelect.addEventListener('change', (e) => {
-                this.selectedSpeaker = e.target.value;
-                if (this.isArabicContent) {
-                    localStorage.setItem('tts_speaker_ar', this.selectedSpeaker);
-                } else {
-                    localStorage.setItem('tts_speaker', this.selectedSpeaker);
-                }
-                
+                this.selectedVoice = e.target.value;
+                localStorage.setItem('tts_voice', this.selectedVoice);
                 if (this.isPlaying) {
                     this.playSentence(this.currentIndex);
-                } else if (this.currentIndex >= 0 && this.currentIndex < this.sentences.length) {
-                    if (this.isLocal) {
-                        this.stopNativeAudio();
-                    } else {
-                        this.audio.src = this.getAudioUrl(this.currentIndex);
-                    }
                 }
             });
             
@@ -288,125 +277,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.jumpToSentence(clampedIdx);
             });
 
-            // Bind listeners to the real HTML5 Audio Element
-            this.audio.addEventListener('play', () => {
-                this.isPlaying = true;
-                this.setPlayButton(true);
-                this.setMediaPlaybackState('playing');
-            });
+        }
 
-            this.audio.addEventListener('pause', () => {
-                if (this.audio.ended) return; // Ignore native pause events dispatched during track ending
-                this.isPlaying = false;
-                this.setPlayButton(false);
-                this.setMediaPlaybackState('paused');
-            });
-
-            this.audio.addEventListener('ended', () => {
-                this.clearHighlight();
-                this.currentIndex++;
-                if (this.currentIndex < this.sentences.length) {
-                    this.playSentence(this.currentIndex);
-                } else {
-                    this.stop();
-                }
-            });
-
-            this.audio.addEventListener('error', (e) => {
-                console.error('Audio playback error:', e);
-                setTimeout(() => this.nextSentence(), 500);
-            });
-
-            // Crucial: Chrome resets playbackRate when a new src is loaded, so we re-apply it on loaded metadata
-            this.audio.addEventListener('loadedmetadata', () => {
-                this.audio.playbackRate = this.selectedSpeed;
-            });
+        // On-device speech voices only. Network ("online") voices are excluded so
+        // narration works offline. Returns [] when the device has no installed voice.
+        usableVoices() {
+            if (!('speechSynthesis' in window)) return [];
+            return window.speechSynthesis.getVoices().filter(v => v.localService);
         }
 
         initVoices() {
+            const voices = this.usableVoices();
+            this.hasVoice = voices.length > 0;
             this.voiceSelect.innerHTML = '';
 
-            if (this.isArabicContent) {
-                // Fetch local Arabic voices via Web Speech API
-                let localArabicVoices = [];
-                if ('speechSynthesis' in window) {
-                    localArabicVoices = window.speechSynthesis.getVoices().filter(voice => {
-                        const lang = voice.lang.toLowerCase();
-                        const name = voice.name.toLowerCase();
-                        return lang.startsWith('ar') || name.includes('arabic') || name.includes('العربية');
-                    });
-                }
-
-                if (localArabicVoices.length > 0) {
-                    // Populate with the found local Arabic voices
-                    localArabicVoices.forEach(voice => {
-                        const option = document.createElement('option');
-                        option.value = 'local:' + voice.name;
-                        
-                        // Give it a premium, descriptive name
-                        let displayName;
-                        if (voice.name.toLowerCase().includes('google')) {
-                            displayName = `🌟 Google Neural Arabic (Local)`;
-                        } else if (voice.localService) {
-                            displayName = `📱 Native ${voice.name} (Local)`;
-                        } else {
-                            displayName = `🗣️ ${voice.name} (Local)`;
-                        }
-                        
-                        option.textContent = displayName;
-                        this.voiceSelect.appendChild(option);
-                    });
-                } else {
-                    // Fallback option if getVoices is empty (sometimes async) or no Arabic voice is installed
-                    const option = document.createElement('option');
-                    option.value = 'local:default-arabic';
-                    option.textContent = '🌟 Google Neural Arabic (Local Fallback)';
-                    this.voiceSelect.appendChild(option);
-                }
-                
-                // Set default speaker for Arabic
-                const storedArabicSpeaker = localStorage.getItem('tts_speaker_ar');
-                if (storedArabicSpeaker && this.voiceSelect.querySelector(`option[value="${storedArabicSpeaker}"]`)) {
-                    this.selectedSpeaker = storedArabicSpeaker;
-                } else {
-                    this.selectedSpeaker = this.voiceSelect.options[0]?.value || 'local:default-arabic';
-                }
-                this.voiceSelect.value = this.selectedSpeaker;
-            } else {
-                // Curated list of deep neural speaker profiles available on Workers AI Deepgram Aura-1
-                const speakers = [
-                    { id: 'angus', name: '🌟 Angus (Male - Natural)' },
-                    { id: 'asteria', name: '🌟 Asteria (Female - Expressive)' },
-                    { id: 'arcas', name: '🌟 Arcas (Male - Crisp)' },
-                    { id: 'orion', name: '🌟 Orion (Male - Professional)' },
-                    { id: 'hera', name: '🌟 Hera (Female - Conversational)' },
-                    { id: 'zeus', name: '🌟 Zeus (Male - Dynamic)' }
-                ];
-
-                speakers.forEach(voice => {
-                    const option = document.createElement('option');
-                    option.value = voice.id;
-                    option.textContent = voice.name;
-                    this.voiceSelect.appendChild(option);
-                });
-
-                this.selectedSpeaker = localStorage.getItem('tts_speaker') || 'angus';
-                this.voiceSelect.value = this.selectedSpeaker;
+            if (!this.hasVoice) {
+                // No installed voice — narration can't run. The play control surfaces
+                // an install prompt; here we just reflect the empty state.
+                const option = document.createElement('option');
+                option.textContent = 'No voice installed';
+                this.voiceSelect.appendChild(option);
+                this.voiceSelect.disabled = true;
+                return;
             }
+
+            this.voiceSelect.disabled = false;
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = `🗣️ ${voice.name} (${voice.lang})`;
+                this.voiceSelect.appendChild(option);
+            });
+
+            const stored = localStorage.getItem('tts_voice');
+            if (stored && voices.some(v => v.name === stored)) {
+                this.selectedVoice = stored;
+            } else {
+                // Prefer a voice for the page language, otherwise the first available.
+                const pageLang = (document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
+                const match = voices.find(v => v.lang.toLowerCase().startsWith(pageLang));
+                this.selectedVoice = (match || voices[0]).name;
+            }
+            this.voiceSelect.value = this.selectedVoice;
         }
 
-        getAudioUrl(index) {
-            if (index < 0 || index >= this.sentences.length) return '';
-            const text = this.sentences[index].text;
-            const speaker = this.selectedSpeaker || 'angus';
-            const token = getToken();
-            return `/api/articles/${this.articleId}/audio?text=${encodeURIComponent(text)}&speaker=${encodeURIComponent(speaker)}&token=${encodeURIComponent(token)}`;
-        }
-
-        // True when the selected voice is a browser Web Speech voice (synthesized
-        // on-device) rather than a server-rendered Workers AI audio stream.
-        get isLocal() {
-            return this.selectedSpeaker.startsWith('local:');
+        // Voices often aren't loaded on first interaction; re-check before concluding
+        // none exist. Returns whether a usable voice is now available.
+        ensureVoices() {
+            if (!this.hasVoice) this.initVoices();
+            return this.hasVoice;
         }
 
         // Reset the play/pause button glyph + label to reflect playback state.
@@ -422,16 +341,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         cancelLocalSpeech() {
+            // Detach the in-flight utterance's handlers first: speechSynthesis.cancel()
+            // dispatches the previous utterance's onend asynchronously, which would
+            // otherwise advance currentIndex and skip the sentence we're restarting.
+            if (this.currentUtterance) {
+                this.currentUtterance.onend = null;
+                this.currentUtterance.onerror = null;
+                this.currentUtterance = null;
+            }
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
             }
-        }
-
-        // Halt and unload the native <audio> element.
-        stopNativeAudio() {
-            this.audio.pause();
-            this.audio.removeAttribute('src');
-            this.audio.load();
         }
 
         setupMediaSession() {
@@ -483,9 +403,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Re-initialize voices dropdown for the current content
-            this.initVoices();
-
             this.sentences = prepareTtsContent(body);
             this.currentIndex = 0;
             this.updateProgress();
@@ -516,6 +433,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         togglePlay() {
+            if (!this.ensureVoices()) {
+                showVoiceInstallPrompt();
+                return;
+            }
             if (this.isPlaying) {
                 this.pause();
             } else {
@@ -524,28 +445,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         play() {
-            if (this.sentences.length === 0) return;
+            if (this.sentences.length === 0 || !this.hasVoice) return;
             this.isPlaying = true;
             this.setupMediaSession();
             this.playSentence(this.currentIndex);
         }
 
         pause() {
+            // SpeechSynthesis fires no audio events, so reset the UI by hand.
             this.isPlaying = false;
-            if (this.isLocal) {
-                // SpeechSynthesis fires no audio events, so reset the UI by hand.
-                this.cancelLocalSpeech();
-                this.setPlayButton(false);
-                this.setMediaPlaybackState('paused');
-            } else {
-                this.audio.pause();
-            }
+            this.cancelLocalSpeech();
+            this.setPlayButton(false);
+            this.setMediaPlaybackState('paused');
         }
 
         stop() {
             this.isPlaying = false;
             this.cancelLocalSpeech();
-            this.stopNativeAudio();
             this.clearHighlight();
             this.currentIndex = 0;
             this.updateProgress();
@@ -563,12 +479,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.highlightSentence(index);
                 const el = this.sentences[index]?.elements[0];
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                if (this.isLocal) {
-                    this.stopNativeAudio();
-                } else {
-                    this.audio.src = this.getAudioUrl(index);
-                }
             }
         }
 
@@ -627,75 +537,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
             this.updateProgress();
 
-            if (this.isLocal) {
-                // Stop any playing audio and cancel any ongoing local speech
-                this.stopNativeAudio();
-                this.cancelLocalSpeech();
+            if (!('speechSynthesis' in window)) return;
 
-                // Synthesize locally
-                const utterance = new SpeechSynthesisUtterance(sentence.text);
-                
-                if ('speechSynthesis' in window) {
-                    const voiceName = this.selectedSpeaker.replace('local:', '');
-                    const voices = window.speechSynthesis.getVoices();
-                    const matchedVoice = voices.find(v => v.name === voiceName) || 
-                                         voices.find(v => v.lang.startsWith('ar'));
-                    if (matchedVoice) {
-                        utterance.voice = matchedVoice;
+            // Cancel any in-flight utterance, then synthesize this sentence on-device.
+            this.cancelLocalSpeech();
+
+            const utterance = new SpeechSynthesisUtterance(sentence.text);
+            this.currentUtterance = utterance;
+            const voice = window.speechSynthesis.getVoices().find(v => v.name === this.selectedVoice);
+            if (voice) {
+                utterance.voice = voice;
+                utterance.lang = voice.lang;
+            }
+            utterance.rate = this.selectedSpeed;
+
+            // SpeechSynthesis emits no media events, so drive the UI by hand.
+            this.isPlaying = true;
+            this.setPlayButton(true);
+            this.setMediaPlaybackState('playing');
+
+            utterance.onend = () => {
+                if (this.isPlaying && this.currentIndex === index) {
+                    this.clearHighlight();
+                    this.currentIndex++;
+                    if (this.currentIndex < this.sentences.length) {
+                        this.playSentence(this.currentIndex);
                     } else {
-                        utterance.lang = 'ar-SA';
-                    }
-                }
-
-                utterance.rate = this.selectedSpeed;
-
-                // UI updates (since audio events won't fire)
-                this.isPlaying = true;
-                this.setPlayButton(true);
-                this.setMediaPlaybackState('playing');
-
-                utterance.onend = () => {
-                    if (this.isPlaying && this.currentIndex === index) {
-                        this.clearHighlight();
-                        this.currentIndex++;
-                        if (this.currentIndex < this.sentences.length) {
-                            this.playSentence(this.currentIndex);
-                        } else {
-                            this.stop();
-                        }
-                    }
-                };
-
-                utterance.onerror = (e) => {
-                    console.error('SpeechSynthesis error:', e);
-                    if (e.error !== 'interrupted' && this.isPlaying) {
                         this.stop();
                     }
-                };
-
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.speak(utterance);
                 }
-            } else {
-                // Stop any active SpeechSynthesis
-                this.cancelLocalSpeech();
+            };
 
-                const url = this.getAudioUrl(index);
-                this.audio.src = url;
-                this.audio.load();
-                this.audio.playbackRate = this.selectedSpeed;
-                
-                this.audio.play().catch(err => {
-                    console.error('Audio playback start rejected:', err);
-                });
-
-                // Prefetch next sentence audio in background to achieve 0ms gap seamless streaming
-                const nextIdx = index + 1;
-                if (nextIdx < this.sentences.length) {
-                    this.prefetchAudio.src = this.getAudioUrl(nextIdx);
-                    this.prefetchAudio.load();
+            utterance.onerror = (e) => {
+                console.error('SpeechSynthesis error:', e);
+                if (e.error !== 'interrupted' && this.isPlaying) {
+                    this.stop();
                 }
-            }
+            };
+
+            window.speechSynthesis.speak(utterance);
         }
     }
 
@@ -766,6 +646,29 @@ document.addEventListener('DOMContentLoaded', () => {
         ensureToastContainer().appendChild(toast);
     }
 
+    // Narration needs an on-device voice; when none is installed we can't speak,
+    // so point the user at their OS install steps instead of failing silently.
+    function showVoiceInstallPrompt() {
+        const ua = navigator.userAgent;
+        let hint;
+        if (/Android/i.test(ua)) {
+            hint = 'Install one in Settings → System → Languages & input → Text-to-speech output → install voice data.';
+        } else if (/Windows/i.test(ua)) {
+            hint = 'Install one in Settings → Time & Language → Language & region → add a language with a Speech pack.';
+        } else {
+            hint = 'Install a text-to-speech voice in your operating system settings.';
+        }
+        showToast(`No speech voice is installed on this device. ${hint}`, 'error', 8000);
+    }
+
+    // Writes (add / archive / delete / summarize) require the server. Offline they
+    // can't run, so guard them with a clear message rather than a failed request.
+    function requireOnline(action) {
+        if (navigator.onLine) return true;
+        showToast(`You're offline — ${action} needs a connection.`, 'error');
+        return false;
+    }
+
     async function authFetch(url, options = {}) {
         const res = await fetch(url, {
             ...options,
@@ -782,13 +685,6 @@ document.addEventListener('DOMContentLoaded', () => {
         onTokenSaved = callback || null;
         tokenError.textContent = '';
         tokenInput.value = getToken();
-        
-        // Populate the default neural TTS voice settings dropdown from localStorage
-        const storedSpeaker = localStorage.getItem('tts_speaker') || 'angus';
-        if (settingsVoiceSelect) {
-            settingsVoiceSelect.value = storedSpeaker;
-        }
-
         tokenModal.classList.remove('hidden');
         tokenInput.focus();
     }
@@ -809,16 +705,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         localStorage.setItem('parse_token', value);
-
-        // Save the chosen voice
-        if (settingsVoiceSelect) {
-            const voice = settingsVoiceSelect.value;
-            localStorage.setItem('tts_speaker', voice);
-            if (ttsController) {
-                ttsController.selectedSpeaker = voice;
-                ttsController.voiceSelect.value = voice;
-            }
-        }
 
         updateAuthClass();
         hideTokenModal();
@@ -851,6 +737,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateAuthClass();
 
+    // Reflect connectivity in the UI and keep it current.
+    reflectOnline();
+    window.addEventListener('online', reflectOnline);
+    window.addEventListener('offline', reflectOnline);
+
     // Instantiate TTS Engine
     ttsController = new TTSController();
 
@@ -877,6 +768,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function triggerClipping(url) {
+        if (!requireOnline('clipping an article')) { showDashboard(); return; }
         // Show clipping view
         viewDashboard.classList.remove('active');
         viewArticle.classList.remove('active');
@@ -941,10 +833,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Bind Listen Aloud button
     btnTts.addEventListener('click', () => {
-        if (ttsController) {
-            ttsController.showPlayer();
-            ttsController.play();
+        if (!ttsController) return;
+        if (!ttsController.ensureVoices()) {
+            showVoiceInstallPrompt();
+            return;
         }
+        ttsController.showPlayer();
+        ttsController.play();
     });
 
     filterToggle.querySelectorAll('.filter-btn').forEach(btn => {
@@ -1016,11 +911,67 @@ document.addEventListener('DOMContentLoaded', () => {
             const articles = await res.json();
             articlesCache = articles;
             renderArticles(articles);
+            // Mirror the active library into the offline cache so it stays readable
+            // without a connection (see docs/adr/0002).
+            if (currentFilter === 'active') warmOfflineCache(articles);
         } catch (err) {
             if (!(err instanceof AuthError)) {
                 articlesGrid.innerHTML = `<p class="error-msg">Could not load library. Ensure the worker is running with D1 configured.</p>`;
             }
         }
+    }
+
+    // Background-fetch every active Article's content + media so the service worker
+    // caches them for offline reading, then evict cache entries for Articles that
+    // have left the library. No-op when offline or unsupported.
+    async function warmOfflineCache(articles) {
+        if (!navigator.onLine || !('caches' in window)) return;
+        const keep = new Set(['/', '/index.html', '/app.js', '/style.css', '/manifest.json', '/icon.svg']);
+        try {
+            const cache = await caches.open(RUNTIME_CACHE);
+            for (const article of articles) {
+                const contentUrl = `/api/articles/${article.id}`;
+                keep.add(contentUrl);
+                try {
+                    // Use the already-cached copy when present; only hit the network
+                    // for Articles we haven't stored yet.
+                    let res = await cache.match(contentUrl);
+                    if (!res) {
+                        res = await authFetch(contentUrl);
+                        if (!res.ok) continue;
+                    }
+                    const data = await res.clone().json();
+                    const payload = JSON.parse(data.content);
+                    // Discover and warm the Article's media so images render offline.
+                    const mediaUrls = (payload.content.match(/\/media\/[A-Za-z0-9._-]+/g) || []);
+                    for (const m of mediaUrls) {
+                        keep.add(m);
+                        if (!(await cache.match(m))) {
+                            try { await fetch(m); } catch {}
+                        }
+                    }
+                } catch {}
+            }
+            // Evict runtime-cached responses for Articles/media no longer in the library.
+            for (const request of await cache.keys()) {
+                const path = new URL(request.url).pathname;
+                if ((path.startsWith('/api/articles/') || path.startsWith('/media/')) && !keep.has(path)) {
+                    cache.delete(request);
+                }
+            }
+        } catch (e) {
+            // Storage quota or transient failures shouldn't break the library view.
+            console.warn('Offline cache warm failed:', e);
+        }
+    }
+
+    // Disable server-dependent controls and flag the UI while offline.
+    function reflectOnline() {
+        const offline = !navigator.onLine;
+        document.body.classList.toggle('offline', offline);
+        [submitBtn, btnArchive, btnDelete, btnSummarize, btnUnsubscribe].forEach(b => {
+            if (b) b.disabled = offline;
+        });
     }
 
     function renderArticles(articles) {
@@ -1079,6 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const url = urlInput.value.trim();
         if (!url) return;
+        if (!requireOnline('adding an article')) return;
 
         urlInput.value = '';
         errorMsg.textContent = '';
@@ -1116,7 +1068,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 e.stopPropagation();
                 if (btn.disabled) return;
-                
+                if (!requireOnline('adding an article')) return;
+
                 btn.disabled = true;
                 try {
                     const res = await authFetch('/api/queue', {
@@ -1178,9 +1131,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            // Setup text parsing and prepare TTS sentences
+            // Setup text parsing and prepare TTS sentences. Arabic Articles aren't
+            // narrated (no on-device Arabic voice exists), so hide the play control.
             if (ttsController) {
                 ttsController.parseArticle(id, payload.title, data.author || payload.byline, payload.content);
+                btnTts.classList.toggle('hidden', ttsController.isArabicContent);
+                if (ttsController.isArabicContent) ttsController.hidePlayer();
             }
 
             injectInlineParseButtons(readerContent);
@@ -1189,6 +1145,8 @@ document.addEventListener('DOMContentLoaded', () => {
             btnSummarize.disabled = false;
             currentArticleArchived = !!data.archived;
             btnArchive.title = currentArticleArchived ? 'Unarchive' : 'Archive';
+            // Re-apply offline state: these server actions can't run without a connection.
+            reflectOnline();
 
             history.pushState({ id }, '', `/?article=${id}`);
 
@@ -1235,6 +1193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function runUnsubscribe(id, btn) {
         if (!id) return;
+        if (!requireOnline('unsubscribing')) return;
         return withButton(btn, async () => {
             const res = await authFetch(`/api/articles/${id}/unsubscribe`, { method: 'POST' });
             const data = await res.json();
@@ -1345,7 +1304,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function runSummarize(id, btn) {
         if (!id) return;
-        
+        if (!requireOnline('summarizing')) return;
+
         // Show loading state
         const container = document.getElementById('summary-container');
         if (container && !container.innerHTML) {
@@ -1383,6 +1343,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // archived: true to archive, false to unarchive.
     function archiveArticle(id, archived, btn, fromReader) {
+        if (!requireOnline('archiving')) return;
         return mutateArticle(id, btn, fromReader,
             () => authFetch(`/api/articles/${id}`, {
                 method: 'PATCH',
@@ -1395,6 +1356,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function deleteArticle(id, btn, fromReader) {
         if (!id) return;
+        if (!requireOnline('deleting')) return;
         if (!confirm('Delete this article permanently? This also removes its saved images and cannot be undone.')) return;
         return mutateArticle(id, btn, fromReader,
             () => authFetch(`/api/articles/${id}`, { method: 'DELETE' }),

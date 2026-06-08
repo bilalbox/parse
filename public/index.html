@@ -178,9 +178,6 @@
     </div>
 </div>
 
-<!-- Native TTS Audio Player -->
-<audio id="tts-audio" preload="auto"></audio>
-
     <!-- Settings Modal -->
     <div id="token-modal" class="modal-overlay hidden">
         <div class="modal-box">
@@ -195,21 +192,6 @@
                 <input type="password" id="token-input" placeholder="Paste token here..." autocomplete="off" spellcheck="false">
             </div>
 
-            <div class="settings-group">
-                <label for="settings-voice-select">Default Neural TTS Voice</label>
-                <p class="settings-help">Choose the default voice for listening to articles (Cloudflare Workers AI Aura-1 model).</p>
-                <div class="select-wrapper">
-                    <select id="settings-voice-select" class="settings-select">
-                        <option value="angus">🌟 Angus (Male - Natural)</option>
-                        <option value="asteria">🌟 Asteria (Female - Expressive)</option>
-                        <option value="arcas">🌟 Arcas (Male - Crisp)</option>
-                        <option value="orion">🌟 Orion (Male - Professional)</option>
-                        <option value="hera">🌟 Hera (Female - Conversational)</option>
-                        <option value="zeus">🌟 Zeus (Male - Dynamic)</option>
-                    </select>
-                </div>
-            </div>
-            
             <div id="token-error" class="error-msg"></div>
             
             <div class="modal-footer">

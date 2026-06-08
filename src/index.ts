@@ -133,34 +133,6 @@ app.post('/api/articles/:id/summarize', async (c) => {
 	}
 });
 
-// Endpoint to generate synthesized audio for a text string using Cloudflare Workers AI Aura model
-app.get('/api/articles/:id/audio', async (c) => {
-	const text = c.req.query('text');
-	const speaker = c.req.query('speaker') || 'angus';
-	if (!text) return c.json({ error: 'Text is required' }, 400);
-
-	try {
-		// Run Cloudflare Workers AI Aura-1 TTS (cast to bypass wrangler type omissions)
-		const response = await (c.env.AI as any).run('@cf/deepgram/aura-1', {
-			text: text.trim(),
-			speaker: speaker,
-		}, {
-			returnRawResponse: true
-		}) as any as Response;
-
-		// Return the binary audio stream
-		const headers = new Headers();
-		headers.set('Content-Type', 'audio/wav');
-		// Cache this exact sentence audio for 1 year in Cloudflare CDN (immutable)
-		headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-
-		return new Response(response.body, { headers });
-	} catch (error: any) {
-		console.error('Workers AI TTS Error:', error);
-		return c.json({ error: 'Failed to synthesize speech: ' + error.message }, 500);
-	}
-});
-
 // Archive / unarchive an article. Archived items drop out of the default
 // library list but keep their content and images.
 app.patch('/api/articles/:id', async (c) => {
