@@ -86,7 +86,8 @@
 	 * Cloudflare Workers AI Binding
 	 */
 	"ai": {
-		"binding": "AI"
+		"binding": "AI",
+                "remote": true,
 	},
 	/**
 	 * Cloudflare Queues

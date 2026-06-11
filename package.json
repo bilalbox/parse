@@ -10,17 +10,17 @@
     "cf-typegen": "wrangler types"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.13",
+    "@cloudflare/vitest-pool-workers": "^0.16.14",
     "@types/mozilla-readability": "^0.2.1",
     "@types/node": "^25.9.2",
     "typescript": "^6.0.3",
     "vitest": "~4.1.8",
-    "wrangler": "^4.98.0"
+    "wrangler": "^4.99.0"
   },
   "dependencies": {
     "@cloudflare/puppeteer": "^1.1.0",
     "@mozilla/readability": "^0.6.0",
-    "hono": "^4.12.23",
+    "hono": "^4.12.25",
     "linkedom": "^0.18.12",
     "postal-mime": "^2.7.4"
   }

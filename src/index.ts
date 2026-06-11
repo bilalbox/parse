@@ -94,7 +94,7 @@ async function generateArticleSummary(env: AppEnv, id: string, textContent: stri
 Content:
 ${textContent.slice(0, 15000)}`;
 
-	const result = await env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
+	const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8-fast', {
 		messages: [
 			{ role: 'system', content: 'You are an expert reading assistant. Provide concise, high-signal summaries in markdown format.' },
 			{ role: 'user', content: prompt }
@@ -201,7 +201,7 @@ export default {
 			}
 		}
 	},
-	async email(message: any, env: AppEnv, ctx: any) {
+	async email(message: ForwardableEmailMessage, env: AppEnv, ctx: ExecutionContext): Promise<void> {
 		const parser = new PostalMime();
 		const email = await parser.parse(message.raw);
 
