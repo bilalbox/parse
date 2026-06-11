@@ -86,19 +86,21 @@ app.post('/api/articles/:id/unsubscribe', async (c) => {
 });
 
 async function generateArticleSummary(env: AppEnv, id: string, textContent: string): Promise<string> {
-	const prompt = `Summarize the following article/email content. Format your response strictly as a markdown list covering these three areas:
+	const prompt = `Summarize the article/email below as a markdown list with exactly these three sections. Use at most 3 bullets per section. Omit a section entirely if it has nothing of value.
 (1) Main points
-(2) Any big surprises
-(3) Any immediately actionable tools or techniques
+(2) Surprises
+(3) Actionable tools or techniques
 
 Content:
 ${textContent.slice(0, 15000)}`;
 
-	const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8-fast', {
+	const result = await env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
 		messages: [
-			{ role: 'system', content: 'You are an expert reading assistant. Provide concise, high-signal summaries in markdown format.' },
+			{ role: 'system', content: 'You are an expert reading assistant producing concise, high-signal markdown summaries.' },
 			{ role: 'user', content: prompt }
-		]
+		],
+		max_tokens: 400,
+		temperature: 0.3,
 	}) as any;
 
 	const summary = result?.response || result?.choices?.[0]?.message?.content || result?.result;

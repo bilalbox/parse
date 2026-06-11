@@ -279,11 +279,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         }
 
-        // On-device speech voices only. Network ("online") voices are excluded so
-        // narration works offline. Returns [] when the device has no installed voice.
+        // English speech voices only, collapsed to one per accent. Android (Google
+        // TTS) enumerates hundreds of voices and reports localService=true for nearly
+        // all of them, so that flag is not a usable gate — we filter by language.
+        // Each English locale (en-US, en-GB, …) is then listed once: Android ships a
+        // redundant on-device + "network" copy per accent, which is what made the
+        // list huge. We keep the on-device copy when present. Returns [] when none.
         usableVoices() {
             if (!('speechSynthesis' in window)) return [];
-            return window.speechSynthesis.getVoices().filter(v => v.localService);
+            const english = window.speechSynthesis.getVoices()
+                .filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+
+            const byLocale = new Map();
+            for (const v of english) {
+                const locale = v.lang.toLowerCase();
+                const isNetwork = /network/i.test(v.name);
+                const existing = byLocale.get(locale);
+                // First seen wins, but an on-device voice always beats a network one.
+                if (!existing || (/network/i.test(existing.name) && !isNetwork)) {
+                    byLocale.set(locale, v);
+                }
+            }
+            return [...byLocale.values()].sort((a, b) => a.lang.localeCompare(b.lang));
         }
 
         initVoices() {
@@ -539,6 +556,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!('speechSynthesis' in window)) return;
 
+            // SpeechSynthesis emits no media events, so drive the UI by hand.
+            this.isPlaying = true;
+            this.setPlayButton(true);
+            this.setMediaPlaybackState('playing');
+
+            // `withVoice=false` retries lang-only: on Android Chrome, assigning a
+            // specific enumerated voice can make speak() fail silently or error,
+            // while leaving voice unset (lang only) succeeds.
+            this.speakSentence(index, true);
+        }
+
+        speakSentence(index, withVoice) {
+            const sentence = this.sentences[index];
+
             // Cancel any in-flight utterance, then synthesize this sentence on-device.
             this.cancelLocalSpeech();
 
@@ -546,15 +577,14 @@ document.addEventListener('DOMContentLoaded', () => {
             this.currentUtterance = utterance;
             const voice = window.speechSynthesis.getVoices().find(v => v.name === this.selectedVoice);
             if (voice) {
-                utterance.voice = voice;
+                // Always pin the language so the OS picks an English engine; only pin
+                // the exact voice on the first attempt.
                 utterance.lang = voice.lang;
+                if (withVoice) utterance.voice = voice;
             }
             utterance.rate = this.selectedSpeed;
 
-            // SpeechSynthesis emits no media events, so drive the UI by hand.
-            this.isPlaying = true;
-            this.setPlayButton(true);
-            this.setMediaPlaybackState('playing');
+            utterance.onstart = () => console.log('[tts] onstart', { voice: utterance.voice?.name, lang: utterance.lang, withVoice });
 
             utterance.onend = () => {
                 if (this.isPlaying && this.currentIndex === index) {
@@ -569,13 +599,24 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             utterance.onerror = (e) => {
-                console.error('SpeechSynthesis error:', e);
-                if (e.error !== 'interrupted' && this.isPlaying) {
-                    this.stop();
+                console.error('SpeechSynthesis error:', e.error, e);
+                if (e.error === 'interrupted' || e.error === 'canceled' || !this.isPlaying) return;
+                // Retry once without the pinned voice — the common Android failure mode.
+                if (withVoice && this.currentIndex === index) {
+                    this.speakSentence(index, false);
+                    return;
                 }
+                showToast(`Speech failed: ${e.error}`, 'error', 6000);
+                this.stop();
             };
 
-            window.speechSynthesis.speak(utterance);
+            // Android Chrome drops an utterance queued in the same tick as cancel();
+            // a tick of delay lets the cancel settle before we speak.
+            setTimeout(() => {
+                if (this.isPlaying && this.currentUtterance === utterance) {
+                    window.speechSynthesis.speak(utterance);
+                }
+            }, 0);
         }
     }
 
