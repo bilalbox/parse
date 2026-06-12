@@ -94,7 +94,7 @@ async function generateArticleSummary(env: AppEnv, id: string, textContent: stri
 Content:
 ${textContent.slice(0, 15000)}`;
 
-	const result = await env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
+	const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8-fast', {
 		messages: [
 			{ role: 'system', content: 'You are an expert reading assistant producing concise, high-signal markdown summaries.' },
 			{ role: 'user', content: prompt }
