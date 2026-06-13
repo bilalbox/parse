@@ -46,8 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFilter = 'active';
     // View cross-fade duration; must match the CSS .view transition.
     const FADE_MS = 300;
-    // Runtime cache name — must match RUNTIME_CACHE in public/sw.js.
-    const RUNTIME_CACHE = 'parse-runtime-v1';
+    // The offline-cache convention, shared with the service worker (see
+    // cache-convention.js, loaded before this script).
+    const { RUNTIME_CACHE, SHELL_ASSETS, mediaUrls, isRuntimeCacheable } = self.PARSE_CACHE;
 
     let ttsController = null;
 
@@ -967,7 +968,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // have left the library. No-op when offline or unsupported.
     async function warmOfflineCache(articles) {
         if (!navigator.onLine || !('caches' in window)) return;
-        const keep = new Set(['/', '/index.html', '/app.js', '/style.css', '/manifest.json', '/icon.svg']);
+        const keep = new Set(SHELL_ASSETS);
+        // The library list response (pathname /api/articles, with or without
+        // ?archived) must survive eviction so the list itself loads offline.
+        keep.add('/api/articles');
         try {
             const cache = await caches.open(RUNTIME_CACHE);
             for (const article of articles) {
@@ -984,8 +988,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await res.clone().json();
                     const payload = JSON.parse(data.content);
                     // Discover and warm the Article's media so images render offline.
-                    const mediaUrls = (payload.content.match(/\/media\/[A-Za-z0-9._-]+/g) || []);
-                    for (const m of mediaUrls) {
+                    for (const m of mediaUrls(payload.content)) {
                         keep.add(m);
                         if (!(await cache.match(m))) {
                             try { await fetch(m); } catch {}
@@ -996,7 +999,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Evict runtime-cached responses for Articles/media no longer in the library.
             for (const request of await cache.keys()) {
                 const path = new URL(request.url).pathname;
-                if ((path.startsWith('/api/articles/') || path.startsWith('/media/')) && !keep.has(path)) {
+                if (isRuntimeCacheable(path) && !keep.has(path)) {
                     cache.delete(request);
                 }
             }

@@ -6,6 +6,7 @@ import { createWebSource } from './sources/web';
 import { createEmailSource } from './sources/email';
 import { extractMediaKeys, serveMedia } from './media';
 import { articlePlainText, createArticleStore } from './store';
+import { summarizeArticle } from './summarize';
 
 type AppEnv = Env & { PARSE_TOKEN?: string; PARSE_QUEUE: Queue<{ url: string }> };
 
@@ -85,31 +86,6 @@ app.post('/api/articles/:id/unsubscribe', async (c) => {
 	return c.json({ action: 'open', link });
 });
 
-async function generateArticleSummary(env: AppEnv, id: string, textContent: string): Promise<string> {
-	const prompt = `Summarize the article/email below as a markdown list with exactly these three sections. Use at most 3 bullets per section. Omit a section entirely if it has nothing of value.
-(1) Main points
-(2) Surprises
-(3) Actionable tools or techniques
-
-Content:
-${textContent.slice(0, 15000)}`;
-
-	const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8-fast', {
-		messages: [
-			{ role: 'system', content: 'You are an expert reading assistant producing concise, high-signal markdown summaries.' },
-			{ role: 'user', content: prompt }
-		],
-		max_tokens: 400,
-		temperature: 0.3,
-	}) as any;
-
-	const summary = result?.response || result?.choices?.[0]?.message?.content || result?.result;
-	if (!summary) throw new Error('AI response did not contain a valid summary');
-
-	await createArticleStore(env.DB).saveSummary(id, summary);
-	return summary;
-}
-
 // Summarize an article using Cloudflare Workers AI.
 app.post('/api/articles/:id/summarize', async (c) => {
 	const id = c.req.param('id');
@@ -127,7 +103,7 @@ app.post('/api/articles/:id/summarize', async (c) => {
 	if (!textContent) return c.json({ error: 'No content to summarize' }, 400);
 
 	try {
-		const summary = await generateArticleSummary(c.env, id, textContent);
+		const summary = await summarizeArticle(c.env, id, textContent);
 		return c.json({ summary });
 	} catch (error: any) {
 		console.error('AI Error:', error);
@@ -217,7 +193,7 @@ export default {
 			const textContent = articlePlainText(article.content);
 			if (textContent) {
 				ctx.waitUntil(
-					generateArticleSummary(env, article.id, textContent)
+					summarizeArticle(env, article.id, textContent)
 						.catch(e => console.error('Background summary generation failed:', e))
 				);
 			}

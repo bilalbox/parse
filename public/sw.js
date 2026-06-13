@@ -6,18 +6,16 @@
 //   offline. The page (app.js) proactively warms and prunes the runtime cache
 //   to mirror the active library.
 // - Everything else (writes, search, queue) is network-only and never cached.
+//
+// The cache names, shell list, and what-counts-as-cacheable rules are NOT
+// defined here — they're the offline-cache convention, shared build-free with
+// the page via cache-convention.js (self.PARSE_CACHE).
+// NB: importScripts byte-caches this file into the SW registration at install,
+// so editing cache-convention.js alone won't reach the SW — bump SHELL_CACHE
+// (or touch this file) to force the SW to re-install with the new convention.
+importScripts('/cache-convention.js');
 
-const SHELL_CACHE = 'parse-shell-v1';
-const RUNTIME_CACHE = 'parse-runtime-v1'; // keep in sync with RUNTIME_CACHE in app.js
-
-const SHELL_ASSETS = [
-    '/',
-    '/index.html',
-    '/app.js',
-    '/style.css',
-    '/manifest.json',
-    '/icon.svg',
-];
+const { SHELL_CACHE, RUNTIME_CACHE, SHELL_ASSETS, isRuntimeCacheable } = self.PARSE_CACHE;
 
 self.addEventListener('install', (e) => {
     e.waitUntil(
@@ -69,7 +67,7 @@ self.addEventListener('fetch', (e) => {
     }
 
     // Article content and media: network-first with cache fallback for offline.
-    if (url.pathname.startsWith('/api/articles') || url.pathname.startsWith('/media/')) {
+    if (isRuntimeCacheable(url.pathname)) {
         e.respondWith(networkFirst(request));
         return;
     }

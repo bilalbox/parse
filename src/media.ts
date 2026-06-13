@@ -44,6 +44,8 @@ export async function rescueMedia(doc: any, resolveBytes: ResolveBytes, bucket: 
 // Pull the R2 object keys back out of a stored article's content so a delete can
 // purge them. The reverse of the /media/<key> rewrite uploadToR2 performs.
 // Returns deduped keys; safe on null/garbage content.
+// NB: mirrors the /media/<key> shape owned by the offline-cache convention
+// (public/cache-convention.js) — a separate runtime that can't import this.
 export function extractMediaKeys(content: string | null): string[] {
 	if (!content) return [];
 	const keys = new Set<string>();
