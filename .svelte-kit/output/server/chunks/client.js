@@ -49,7 +49,7 @@ function create_updated_store() {
 	};
 }
 //#endregion
-//#region node_modules/@sveltejs/kit/src/runtime/client/state.svelte.js
+//#region node_modules/.pnpm/@sveltejs+kit@2.65.0_@sveltejs+vite-plugin-svelte@7.1.2_svelte@5.56.3_vite@8.0.16_@type_7dc065a6e450014ad1dfd4d28a6f5cb3/node_modules/@sveltejs/kit/src/runtime/client/state.svelte.js
 var page;
 var navigating;
 var updated;
@@ -88,7 +88,7 @@ if (is_legacy) {
 	updated_listener.v = () => updated.current = true;
 }
 //#endregion
-//#region node_modules/@sveltejs/kit/src/runtime/client/client.js
+//#region node_modules/.pnpm/@sveltejs+kit@2.65.0_@sveltejs+vite-plugin-svelte@7.1.2_svelte@5.56.3_vite@8.0.16_@type_7dc065a6e450014ad1dfd4d28a6f5cb3/node_modules/@sveltejs/kit/src/runtime/client/client.js
 /** @import { RemoteFunctionDataNode, ServerNodesResponse, ServerRedirectNode } from 'types' */
 /** @import { CacheEntry } from './remote-functions/cache.svelte.js' */
 /** @import { Query } from './remote-functions/query/instance.svelte.js' */

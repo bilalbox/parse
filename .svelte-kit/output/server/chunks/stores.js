@@ -1,6 +1,6 @@
 import { d as getContext } from "./internal.js";
 import "./client.js";
-//#region node_modules/@sveltejs/kit/src/runtime/app/stores.js
+//#region node_modules/.pnpm/@sveltejs+kit@2.65.0_@sveltejs+vite-plugin-svelte@7.1.2_svelte@5.56.3_vite@8.0.16_@type_7dc065a6e450014ad1dfd4d28a6f5cb3/node_modules/@sveltejs/kit/src/runtime/app/stores.js
 /**
 * A function that returns all of the contextual stores. On the server, this must be called during component initialization.
 * Only use this if you need to defer store subscription until after the component has mounted, for some reason.

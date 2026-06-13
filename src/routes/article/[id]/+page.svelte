@@ -235,15 +235,13 @@
 		
 		{#if !loading && articleData}
 			<div class="reader-controls">
-				{#if !tts.isArabicContent}
-					<button 
-						class="icon-btn" 
-						onclick={() => tts.togglePlay()} 
-						title={tts.isPlaying && tts.articleId === id ? 'Pause' : 'Read Aloud'}
-					>
-						{tts.isPlaying && tts.articleId === id ? '⏸' : '▶'}
-					</button>
-				{/if}
+				<button
+					class="icon-btn"
+					onclick={() => tts.togglePlay()}
+					title={tts.isPlaying && tts.articleId === id ? 'Pause' : 'Read Aloud'}
+				>
+					{tts.isPlaying && tts.articleId === id ? '⏸' : '▶'}
+				</button>
 				{#if articleData.unsubscribe_link}
 					<button class="icon-btn" onclick={runUnsubscribe} title="Unsubscribe">⊖</button>
 				{/if}

@@ -41,6 +41,6 @@ declare module "$app/types" {
 		};
 		Pathname(): "/" | `/article/${string}` & {} | "/share";
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
-		Asset(): "/icon.svg" | "/manifest.json" | "/silence.wav" | string & {};
+		Asset(): "/icon.svg" | "/manifest.json" | string & {};
 	}
 }
