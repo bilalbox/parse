@@ -1,0 +1,12 @@
+{
+	"/": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/article/[id]": [
+		"src/routes/+layout.ts"
+	],
+	"/share": [
+		"src/routes/+layout.ts"
+	]
+}

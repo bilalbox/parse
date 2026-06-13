@@ -32,7 +32,7 @@ Moving an Article out of the library without deleting it; its content and media 
 Images pulled out of an Article during extraction, uploaded to R2, and referenced in stored content as `/media/<key>`.
 
 **Offline cache convention**:
-The single source of truth for how the offline Library is cached (ADR-0002): the cache names, the precached app-shell list, the `/media/<key>` pattern, and which request paths are runtime-cacheable. Lives in `public/cache-convention.js` and is shared, build-free, by both the page (`app.js`, which warms/evicts the runtime cache) and the service worker (`sw.js`, which serves network-first). The server's `extractMediaKeys` mirrors the same `/media/<key>` shape in its own runtime.
+The single source of truth for how the offline Library is cached (ADR-0002): the cache names, the `/media/<key>` pattern, and which request paths are runtime-cacheable. Lives in `src/lib/cache-convention.ts` and is shared via ESM imports by both the SvelteKit frontend (which warms/evicts the runtime cache) and the service worker (`src/service-worker.ts`, which serves network-first). The server's `extractMediaKeys` mirrors the same `/media/<key>` shape in its own runtime.
 _Avoid_: cache config, sw helpers
 
 **Narration**:

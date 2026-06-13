@@ -62,9 +62,9 @@ h1, h2, h3, h4, h5, h6 {
     background: var(--bg-primary);
 }
 
-/* SPA View Logic - Native Push/Pop */
+/* SPA View Layout - Native Svelte transitions handle push/pop */
 .view {
-    display: block !important;
+    display: block;
     position: absolute;
     top: 0;
     left: 0;
@@ -73,48 +73,23 @@ h1, h2, h3, h4, h5, h6 {
     overflow-y: auto;
     overflow-x: hidden;
     background: var(--bg-primary);
-    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
     -webkit-overflow-scrolling: touch;
 }
 
 #view-dashboard {
     z-index: 1;
-    transform: translateX(0);
 }
 
 #view-article {
     z-index: 2;
-    transform: translateX(100%);
-    box-shadow: -20px 0 40px rgba(0,0,0,0.2);
-}
-
-[data-theme="light"] #view-article {
-    box-shadow: -20px 0 40px rgba(0,0,0,0.05);
-}
-
-/* When article is active */
-#view-article.active {
-    transform: translateX(0);
-}
-
-/* When article is active, push dashboard back */
-body:has(#view-article.active) #view-dashboard,
-body:has(#view-clipping.active) #view-dashboard {
-    transform: translateX(-25%);
-    opacity: 0.5;
 }
 
 #view-clipping {
     z-index: 3;
-    transform: translateY(100%);
-    display: flex !important;
+    display: flex;
     align-items: center;
     justify-content: center;
     flex-direction: column;
-}
-
-#view-clipping.active {
-    transform: translateY(0);
 }
 
 .clipping-container {
