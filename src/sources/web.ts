@@ -1,5 +1,5 @@
 import puppeteer from '@cloudflare/puppeteer';
-import { Source, extractFeaturedImage } from '../extract';
+import { type Source, extractFeaturedImage } from '../extract';
 
 // The web ingest adapter. Renders the page with Puppeteer up front (the one
 // untestable step, kept thin and isolated), then satisfies the Source seam:

@@ -38,7 +38,7 @@
 			try {
 				const res = await settings.authFetch(`/api/search?q=${encodeURIComponent(query)}`);
 				if (res.ok) {
-					searchResults = await res.json();
+					searchResults = (await res.json()) as any[];
 				} else {
 					throw new Error();
 				}
@@ -57,7 +57,7 @@
 	// Derived Articles to display
 	let displayedArticles = $derived(searchResults !== null ? searchResults : articlesCache);
 
-	async function fetchLibrary() {
+	async function fetchLibrary(): Promise<void> {
 		loading = true;
 		try {
 			const qs = filter === 'archived' ? '?archived=1' : '';
@@ -70,7 +70,7 @@
 				}
 				throw new Error('Failed to fetch library');
 			}
-			const data = await res.json();
+			const data = (await res.json()) as any[];
 			articlesCache = data;
 			
 			// Warm offline cache if active list is fetched online
@@ -84,7 +84,7 @@
 		}
 	}
 
-	async function warmOfflineCache(articles: any[]) {
+	async function warmOfflineCache(articles: any[]): Promise<void> {
 		if (typeof window === 'undefined' || !('caches' in window) || !navigator.onLine) return;
 		
 		try {
@@ -104,7 +104,7 @@
 						res = await settings.authFetch(contentUrl);
 						if (!res.ok) continue;
 					}
-					const data = await res.clone().json();
+					const data = (await res.clone().json()) as any;
 					const payload = JSON.parse(data.content);
 					
 					// Warm the media
@@ -134,7 +134,7 @@
 		}
 	}
 
-	async function handleParse(e: SubmitEvent) {
+	async function handleParse(e: SubmitEvent): Promise<void> {
 		e.preventDefault();
 		if (!urlToParse) return;
 		if (!settings.isOnline) {
@@ -153,7 +153,7 @@
 			});
 
 			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
+				const data = (await res.json().catch(() => ({}))) as any;
 				throw new Error(data.error || 'Failed to queue URL');
 			}
 
@@ -162,7 +162,9 @@
 			showAddSheet = false;
 			
 			// Reload active articles after queueing
-			setTimeout(() => fetchLibrary(), 1500);
+			setTimeout(() => {
+				fetchLibrary();
+			}, 1500);
 		} catch (err: any) {
 			parseError = err.message || 'Parsing failed';
 		} finally {
@@ -170,7 +172,7 @@
 		}
 	}
 
-	async function archiveArticle(id: string, archived: boolean) {
+	async function archiveArticle(id: string, archived: boolean): Promise<void> {
 		if (!settings.isOnline) {
 			toast.show(`Cannot ${archived ? 'archive' : 'unarchive'} while offline.`, 'error');
 			return;
@@ -184,7 +186,7 @@
 			});
 			
 			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
+				const data = (await res.json().catch(() => ({}))) as any;
 				throw new Error(data.error || 'Failed to update article');
 			}
 
@@ -195,7 +197,7 @@
 		}
 	}
 
-	async function deleteArticle(id: string) {
+	async function deleteArticle(id: string): Promise<void> {
 		if (!id) return;
 		if (!settings.isOnline) {
 			toast.show('Cannot delete while offline.', 'error');
@@ -207,7 +209,7 @@
 		try {
 			const res = await settings.authFetch(`/api/articles/${id}`, { method: 'DELETE' });
 			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
+				const data = (await res.json().catch(() => ({}))) as any;
 				throw new Error(data.error || 'Failed to delete article');
 			}
 
@@ -218,7 +220,7 @@
 		}
 	}
 
-	async function runUnsubscribe(id: string) {
+	async function runUnsubscribe(id: string): Promise<void> {
 		if (!id) return;
 		if (!settings.isOnline) {
 			toast.show('Cannot unsubscribe while offline.', 'error');
@@ -227,7 +229,7 @@
 
 		try {
 			const res = await settings.authFetch(`/api/articles/${id}/unsubscribe`, { method: 'POST' });
-			const data = await res.json();
+			const data = (await res.json()) as any;
 			if (!res.ok) {
 				throw new Error(data.error || 'Failed to unsubscribe');
 			}
@@ -244,18 +246,23 @@
 		}
 	}
 
-	function saveSettings() {
+	function setFilter(newFilter: 'active' | 'archived'): void {
+		filter = newFilter;
+		fetchLibrary();
+	}
+
+	function saveSettings(): void {
 		settings.saveToken(settingsToken);
 		showSettingsModal = false;
 		fetchLibrary();
 	}
 
-	function cancelSettings() {
+	function cancelSettings(): void {
 		settingsToken = settings.token;
 		showSettingsModal = false;
 	}
 
-	async function checkUpdates() {
+	async function checkUpdates(): Promise<void> {
 		if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
 			toast.show('Offline updates are not supported in this browser.', 'error');
 			return;
@@ -304,14 +311,10 @@
 		}
 	}
 
-	// Trigger library fetch reactively on mount or filter change
-	$effect(() => {
-		fetchLibrary();
-	});
-
 	onMount(() => {
 		settingsToken = settings.token;
 		document.title = 'Parse | Edge Reading';
+		fetchLibrary();
 	});
 </script>
 
@@ -336,8 +339,8 @@
 			<h2>Library</h2>
 			<div class="library-tools">
 				<div class="filter-toggle" id="filter-toggle">
-					<button class="filter-btn" class:active={filter === 'active'} onclick={() => filter = 'active'}>Active</button>
-					<button class="filter-btn" class:active={filter === 'archived'} onclick={() => filter = 'archived'}>Archived</button>
+					<button class="filter-btn" class:active={filter === 'active'} onclick={() => setFilter('active')}>Active</button>
+					<button class="filter-btn" class:active={filter === 'archived'} onclick={() => setFilter('archived')}>Archived</button>
 				</div>
 				<div class="search-box">
 					<input type="text" id="search-input" bind:value={searchQuery} placeholder="Search...">

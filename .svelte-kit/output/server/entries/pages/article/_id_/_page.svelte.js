@@ -1,4 +1,4 @@
-import { a as attr_style, d as unsubscribe_stores, i as attr_class, l as store_get, o as derived, p as attr, u as stringify } from "../../../../chunks/internal.js";
+import { a as attr_style, c as store_get, f as attr, i as attr_class, l as stringify, o as derived, u as unsubscribe_stores } from "../../../../chunks/internal.js";
 import { t as page } from "../../../../chunks/stores.js";
 import { t as settings } from "../../../../chunks/settings.svelte.js";
 import { t as tts } from "../../../../chunks/tts.svelte.js";

@@ -1,7 +1,8 @@
-import { i as attr_class, o as derived, p as attr } from "../../chunks/internal.js";
+import { f as attr, i as attr_class, o as derived } from "../../chunks/internal.js";
 import { t as settings } from "../../chunks/settings.svelte.js";
 import "../../chunks/toast.svelte.js";
 import "../../chunks/navigation.js";
+//#endregion
 //#region src/routes/+page.svelte
 function _page($$renderer, $$props) {
 	$$renderer.component(($$renderer) => {

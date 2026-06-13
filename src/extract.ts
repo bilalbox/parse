@@ -1,6 +1,6 @@
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
-import { MediaBytes, rescueMedia } from './media';
+import { type MediaBytes, rescueMedia } from './media';
 
 // Everything a Source's rescue hook needs to re-attach dropped content:
 // the parsed Article document to mutate, a pristine (preprocessed) copy of the

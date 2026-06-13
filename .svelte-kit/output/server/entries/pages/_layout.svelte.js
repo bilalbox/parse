@@ -1,4 +1,4 @@
-import { a as attr_style, c as slot, d as unsubscribe_stores, i as attr_class, m as escape_html, p as attr, s as ensure_array_like, u as stringify } from "../../chunks/internal.js";
+import { a as attr_style, f as attr, i as attr_class, l as stringify, p as escape_html, s as ensure_array_like, u as unsubscribe_stores } from "../../chunks/internal.js";
 import "../../chunks/stores.js";
 import "../../chunks/settings.svelte.js";
 import { t as tts } from "../../chunks/tts.svelte.js";
@@ -7,11 +7,11 @@ import { t as toast } from "../../chunks/toast.svelte.js";
 function _layout($$renderer, $$props) {
 	$$renderer.component(($$renderer) => {
 		var $$store_subs;
-		let voiceSelectValue = "";
+		let { children } = $$props;
 		$$renderer.push(`<div id="layout-root" style="width: 100%; height: 100%; position: relative;"><!---->`);
-		$$renderer.push(`<div style="position: absolute; width: 100%; height: 100%; top: 0; left: 0;"><!--[-->`);
-		slot($$renderer, $$props, "default", {}, null);
-		$$renderer.push(`<!--]--></div>`);
+		$$renderer.push(`<div style="position: absolute; width: 100%; height: 100%; top: 0; left: 0;">`);
+		children($$renderer);
+		$$renderer.push(`<!----></div>`);
 		$$renderer.push(`<!----> `);
 		if (tts.visible) {
 			$$renderer.push("<!--[0-->");
@@ -54,7 +54,7 @@ function _layout($$renderer, $$props) {
 			});
 			$$renderer.push(`</div> <div class="select-wrapper">`);
 			$$renderer.select({
-				value: voiceSelectValue,
+				value: tts.selectedVoice,
 				onchange: (e) => tts.setVoice(e.currentTarget.value),
 				class: "player-select",
 				title: "Voice Selection",

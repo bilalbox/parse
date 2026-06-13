@@ -1,5 +1,5 @@
 import { parseHTML } from 'linkedom';
-import { Source } from '../extract';
+import type { Source } from '../extract';
 
 type EmailHeader = { key: string; value: string };
 

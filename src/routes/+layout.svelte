@@ -6,12 +6,8 @@
 	import { toast } from '$lib/toast.svelte';
 	import { fly, fade } from 'svelte/transition';
 
-	// Svelte 5 state mirroring tts voice selection
-	let voiceSelectValue = $state('');
-
-	$effect(() => {
-		voiceSelectValue = tts.selectedVoice;
-	});
+	// Svelte 5 layout uses the children prop
+	let { children } = $props();
 </script>
 
 <div id="layout-root" style="width: 100%; height: 100%; position: relative;">
@@ -21,7 +17,7 @@
 			out:fly={{ x: -100, duration: 150 }}
 			style="position: absolute; width: 100%; height: 100%; top: 0; left: 0;"
 		>
-			<slot />
+			{@render children()}
 		</div>
 	{/key}
 
@@ -105,7 +101,7 @@
 					</div>
 					<div class="select-wrapper">
 						<select 
-							value={voiceSelectValue}
+							value={tts.selectedVoice}
 							onchange={(e) => tts.setVoice(e.currentTarget.value)} 
 							class="player-select" 
 							title="Voice Selection"

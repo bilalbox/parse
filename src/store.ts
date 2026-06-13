@@ -1,4 +1,4 @@
-import { Article } from './extract';
+import type { Article } from './extract';
 
 // The Article store owns every query against the `articles` table and its FTS
 // index. Column names, the archived flag, the source_type enum, and the stored

@@ -13,7 +13,7 @@
 	let tokenInputVal = $state('');
 	let needsToken = $state(false);
 
-	async function clipUrl(url: string) {
+	async function clipUrl(url: string): Promise<void> {
 		loading = true;
 		errorMsg = '';
 		success = false;
@@ -32,7 +32,7 @@
 					loading = false;
 					return;
 				}
-				const data = await res.json().catch(() => ({}));
+				const data = (await res.json().catch(() => ({}))) as any;
 				throw new Error(data.error || 'Failed to queue article');
 			}
 
@@ -58,7 +58,7 @@
 		}
 	}
 
-	function handleSaveToken() {
+	function handleSaveToken(): void {
 		if (tokenInputVal.trim()) {
 			settings.saveToken(tokenInputVal.trim());
 			needsToken = false;

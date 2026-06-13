@@ -4484,20 +4484,6 @@ function store_get(store_values, store_name, store) {
 function unsubscribe_stores(store_values) {
 	for (const store_name of Object.keys(store_values)) store_values[store_name][1]();
 }
-/**
-* @param {Renderer} renderer
-* @param {Record<string, any>} $$props
-* @param {string} name
-* @param {Record<string, unknown>} slot_props
-* @param {null | (() => void)} fallback_fn
-* @returns {void}
-*/
-function slot(renderer, $$props, name, slot_props, fallback_fn) {
-	var slot_fn = $$props.$$slots?.[name];
-	if (slot_fn === true) slot_fn = $$props[name === "default" ? "children" : name];
-	if (slot_fn !== void 0) slot_fn(renderer, slot_props);
-	else fallback_fn?.();
-}
 /** @param {any} array_like_or_iterator */
 function ensure_array_like(array_like_or_iterator) {
 	if (array_like_or_iterator) return array_like_or_iterator.length !== void 0 ? array_like_or_iterator : Array.from(array_like_or_iterator);
@@ -4818,7 +4804,7 @@ var options = {
 		app: ({ head, body, assets, nonce, env }) => "<!DOCTYPE html>\n<html lang=\"en\">\n	<head>\n		<meta charset=\"utf-8\" />\n		<link rel=\"icon\" href=\"" + assets + "/icon.svg\" />\n		<link rel=\"manifest\" href=\"" + assets + "/manifest.json\" />\n		<link rel=\"apple-touch-icon\" href=\"" + assets + "/icon.svg\">\n		<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\" />\n		<meta name=\"theme-color\" content=\"#000000\">\n		<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n		<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n		<link href=\"https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&family=Amiri:ital,wght@0,400;0,700;1,400&family=Cairo:wght@300;400;600;800&display=swap\" rel=\"stylesheet\">\n		" + head + "\n	</head>\n	<body data-sveltekit-preload-data=\"hover\">\n		<div style=\"display: contents\">" + body + "</div>\n	</body>\n</html>\n",
 		error: ({ status, message }) => "<!doctype html>\n<html lang=\"en\">\n	<head>\n		<meta charset=\"utf-8\" />\n		<title>" + message + "</title>\n\n		<style>\n			body {\n				--bg: white;\n				--fg: #222;\n				--divider: #ccc;\n				background: var(--bg);\n				color: var(--fg);\n				font-family:\n					system-ui,\n					-apple-system,\n					BlinkMacSystemFont,\n					'Segoe UI',\n					Roboto,\n					Oxygen,\n					Ubuntu,\n					Cantarell,\n					'Open Sans',\n					'Helvetica Neue',\n					sans-serif;\n				display: flex;\n				align-items: center;\n				justify-content: center;\n				height: 100vh;\n				margin: 0;\n			}\n\n			.error {\n				display: flex;\n				align-items: center;\n				max-width: 32rem;\n				margin: 0 1rem;\n			}\n\n			.status {\n				font-weight: 200;\n				font-size: 3rem;\n				line-height: 1;\n				position: relative;\n				top: -0.05rem;\n			}\n\n			.message {\n				border-left: 1px solid var(--divider);\n				padding: 0 0 0 1rem;\n				margin: 0 0 0 1rem;\n				min-height: 2.5rem;\n				display: flex;\n				align-items: center;\n			}\n\n			.message h1 {\n				font-weight: 400;\n				font-size: 1em;\n				margin: 0;\n			}\n\n			@media (prefers-color-scheme: dark) {\n				body {\n					--bg: #222;\n					--fg: #ddd;\n					--divider: #666;\n				}\n			}\n		</style>\n	</head>\n	<body>\n		<div class=\"error\">\n			<span class=\"status\">" + status + "</span>\n			<div class=\"message\">\n				<h1>" + message + "</h1>\n			</div>\n		</div>\n	</body>\n</html>\n"
 	},
-	version_hash: "oqguak"
+	version_hash: "1d8lexm"
 };
 async function get_hooks() {
 	let handle;
@@ -4839,4 +4825,4 @@ async function get_hooks() {
 	};
 }
 //#endregion
-export { __commonJSMin as C, run as S, set_read_implementation as _, attr_style as a, writable as b, slot as c, unsubscribe_stores as d, getContext as f, set_manifest as g, read_implementation as h, attr_class as i, store_get as l, escape_html as m, options as n, derived as o, attr as p, index_server_exports as r, ensure_array_like as s, get_hooks as t, stringify as u, set_env as v, noop as x, readable as y };
+export { __commonJSMin as S, set_env as _, attr_style as a, noop as b, store_get as c, getContext as d, attr as f, set_read_implementation as g, set_manifest as h, attr_class as i, stringify as l, read_implementation as m, options as n, derived as o, escape_html as p, index_server_exports as r, ensure_array_like as s, get_hooks as t, unsubscribe_stores as u, readable as v, run as x, writable as y };

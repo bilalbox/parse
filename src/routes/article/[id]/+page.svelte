@@ -10,19 +10,16 @@
 	let articleData = $state<any>(null);
 	let loading = $state(true);
 	let summarizing = $state(false);
-	
-	// DOM reference to the article wrapper for TTS parsing
-	let contentElement = $state<HTMLElement | null>(null);
 
 	const id = $derived($page.params.id);
 
-	async function loadArticle(articleId: string) {
+	async function loadArticle(articleId: string): Promise<void> {
 		loading = true;
 		articleData = null;
 		try {
 			const res = await settings.authFetch(`/api/articles/${articleId}`);
 			if (!res.ok) throw new Error('Article not found');
-			articleData = await res.json();
+			articleData = (await res.json()) as any;
 			
 			// Update page title
 			const payload = JSON.parse(articleData.content || '{}');
@@ -34,7 +31,7 @@
 		}
 	}
 
-	async function runSummarize() {
+	async function runSummarize(): Promise<void> {
 		if (!id || !articleData) return;
 		if (!settings.isOnline) {
 			toast.show('Cannot summarize while offline.', 'error');
@@ -44,7 +41,7 @@
 		summarizing = true;
 		try {
 			const res = await settings.authFetch(`/api/articles/${id}/summarize`, { method: 'POST' });
-			const data = await res.json();
+			const data = (await res.json()) as any;
 			if (!res.ok) {
 				throw new Error(data.error || 'Failed to summarize');
 			}
@@ -58,7 +55,7 @@
 		}
 	}
 
-	async function archiveArticle() {
+	async function archiveArticle(): Promise<void> {
 		if (!articleData) return;
 		const nextArchivedState = !articleData.archived;
 		
@@ -70,7 +67,7 @@
 			});
 			
 			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
+				const data = (await res.json().catch(() => ({}))) as any;
 				throw new Error(data.error || 'Failed to update article');
 			}
 
@@ -81,14 +78,14 @@
 		}
 	}
 
-	async function deleteArticle() {
+	async function deleteArticle(): Promise<void> {
 		if (!articleData) return;
 		if (!confirm('Delete this article permanently? This also removes its saved images and cannot be undone.')) return;
 
 		try {
 			const res = await settings.authFetch(`/api/articles/${id}`, { method: 'DELETE' });
 			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
+				const data = (await res.json().catch(() => ({}))) as any;
 				throw new Error(data.error || 'Failed to delete article');
 			}
 
@@ -99,11 +96,11 @@
 		}
 	}
 
-	async function runUnsubscribe() {
+	async function runUnsubscribe(): Promise<void> {
 		if (!articleData) return;
 		try {
 			const res = await settings.authFetch(`/api/articles/${id}/unsubscribe`, { method: 'POST' });
-			const data = await res.json();
+			const data = (await res.json()) as any;
 			if (!res.ok) {
 				throw new Error(data.error || 'Failed to unsubscribe');
 			}
@@ -120,7 +117,7 @@
 		}
 	}
 
-	function cycleFont() {
+	function cycleFont(): void {
 		const families = ['sans', 'serif', 'amiri', 'cairo'];
 		const currentIdx = families.indexOf(settings.fontFamily);
 		const nextIdx = (currentIdx + 1) % families.length;
@@ -128,7 +125,7 @@
 	}
 
 	// Custom markdown summary renderer matching the original implementation
-	function renderSummary(summaryText: string) {
+	function renderSummary(summaryText: string): string {
 		if (!summaryText) return '';
 		
 		const lines = summaryText.split('\n');
@@ -187,7 +184,7 @@
 			html += '</ul>';
 		}
 		
-		function parseInlineMarkdown(text: string) {
+		function parseInlineMarkdown(text: string): string {
 			return text
 				.replace(/&/g, '&amp;')
 				.replace(/</g, '&lt;')
@@ -212,18 +209,17 @@
 		}
 	});
 
-	// Reactively bind article content to global TTS engine once loaded and mounted
-	$effect(() => {
-		if (articleData && contentElement) {
-			const payload = JSON.parse(articleData.content || '{}');
-			tts.loadArticle(
-				articleData.id,
-				payload.title || articleData.title,
-				articleData.author || payload.byline,
-				contentElement
-			);
-		}
-	});
+	// Reactively bind article content to global TTS engine once loaded and mounted via Svelte 5 attachment
+	function ttsAttachment(element: HTMLElement): void {
+		if (!articleData) return;
+		const payload = JSON.parse(articleData.content || '{}');
+		tts.loadArticle(
+			articleData.id,
+			payload.title || articleData.title,
+			articleData.author || payload.byline,
+			element
+		);
+	}
 
 	// Clean up TTS highlights when page changes
 	onMount(() => {
@@ -281,7 +277,7 @@
 			<h1>{payload.title}</h1>
 			<p style="color: var(--accent); margin-bottom: 2rem;">By {payload.byline || 'Unknown Author'}</p>
 			
-			<div id="tts-content-wrapper" bind:this={contentElement} onclick={(e) => {
+			<div id="tts-content-wrapper" {@attach ttsAttachment} onclick={(e) => {
 				const target = e.target as HTMLElement;
 				if (target.classList.contains('tts-sentence')) {
 					const idx = parseInt(target.dataset.sentenceIndex || '');
