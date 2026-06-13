@@ -277,7 +277,7 @@
 			<h1>{payload.title}</h1>
 			<p style="color: var(--accent); margin-bottom: 2rem;">By {payload.byline || 'Unknown Author'}</p>
 			
-			<div id="tts-content-wrapper" {@attach ttsAttachment} onclick={(e) => {
+			<div id="tts-content-wrapper" use:ttsAttachment onclick={(e) => {
 				const target = e.target as HTMLElement;
 				if (target.classList.contains('tts-sentence')) {
 					const idx = parseInt(target.dataset.sentenceIndex || '');

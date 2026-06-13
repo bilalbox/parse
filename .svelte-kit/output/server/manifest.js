@@ -10,7 +10,7 @@ return {
 	assets: new Set(["icon.svg","manifest.json","silence.wav","service-worker.js"]),
 	mimeTypes: {".svg":"image/svg+xml",".json":"application/json",".wav":"audio/wav"},
 	_: {
-		client: {start:"_app/immutable/entry/start.CLJNgSBy.js",app:"_app/immutable/entry/app.CWPQvHDd.js",imports:["_app/immutable/entry/start.CLJNgSBy.js","_app/immutable/chunks/Upog8_m_.js","_app/immutable/chunks/V4Hm9MXE.js","_app/immutable/entry/app.CWPQvHDd.js","_app/immutable/chunks/V4Hm9MXE.js","_app/immutable/chunks/xihTtKlq.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.jJsTsWt2.js",app:"_app/immutable/entry/app.B30JODd2.js",imports:["_app/immutable/entry/start.jJsTsWt2.js","_app/immutable/chunks/Hc2qP-4A.js","_app/immutable/chunks/Bw13yYn_.js","_app/immutable/entry/app.B30JODd2.js","_app/immutable/chunks/Bw13yYn_.js","_app/immutable/chunks/xihTtKlq.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
 			__memo(() => import('./nodes/0.js')),
 			__memo(() => import('./nodes/1.js')),

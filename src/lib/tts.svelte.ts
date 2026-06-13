@@ -396,7 +396,7 @@ class TTSManager {
 		// Used by layouts to bind CSS widths
 	}
 
-	playSentence(index: number) {
+	playSentence(index: number, shouldCancel: boolean = true) {
 		if (index < 0 || index >= this.sentences.length) {
 			this.stop();
 			return;
@@ -419,14 +419,16 @@ class TTSManager {
 			navigator.mediaSession.playbackState = 'playing';
 		}
 
-		this.speakSentence(index, true);
+		this.speakSentence(index, true, shouldCancel);
 	}
 
-	private speakSentence(index: number, withVoice: boolean) {
+	private speakSentence(index: number, withVoice: boolean, shouldCancel: boolean = true) {
 		if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
 		const sentence = this.sentences[index];
-		this.cancelLocalSpeech();
+		if (shouldCancel) {
+			this.cancelLocalSpeech();
+		}
 
 		const utterance = new SpeechSynthesisUtterance(sentence.text);
 		this.currentUtterance = utterance;
@@ -443,7 +445,7 @@ class TTSManager {
 				this.clearHighlight();
 				this.currentIndex++;
 				if (this.currentIndex < this.sentences.length) {
-					this.playSentence(this.currentIndex);
+					this.playSentence(this.currentIndex, false);
 				} else {
 					this.stop();
 				}

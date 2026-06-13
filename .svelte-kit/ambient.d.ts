@@ -58,7 +58,6 @@ declare module '$env/static/private' {
 	export const OLDPWD: string;
 	export const npm_config_local_prefix: string;
 	export const npm_config_userconfig: string;
-	export const NODE_PATH: string;
 	export const WSL_DISTRO_NAME: string;
 	export const PAGER: string;
 	export const NVM_INC: string;
@@ -76,8 +75,6 @@ declare module '$env/static/private' {
 	export const SHLVL: string;
 	export const WT_PROFILE_ID: string;
 	export const WAYLAND_DISPLAY: string;
-	export const VIRTUAL_ENV_DISABLE_PROMPT: string;
-	export const USER: string;
 	export const NVM_BIN: string;
 	export const POWERLINE_COMMAND: string;
 	export const npm_config_noproxy: string;
@@ -113,6 +110,8 @@ declare module '$env/static/private' {
 	export const EDITOR: string;
 	export const GIT_PAGER: string;
 	export const PWD: string;
+	export const USER: string;
+	export const VIRTUAL_ENV_DISABLE_PROMPT: string;
 }
 
 /**
@@ -219,7 +218,6 @@ declare module '$env/dynamic/private' {
 		OLDPWD: string;
 		npm_config_local_prefix: string;
 		npm_config_userconfig: string;
-		NODE_PATH: string;
 		WSL_DISTRO_NAME: string;
 		PAGER: string;
 		NVM_INC: string;
@@ -237,8 +235,6 @@ declare module '$env/dynamic/private' {
 		SHLVL: string;
 		WT_PROFILE_ID: string;
 		WAYLAND_DISPLAY: string;
-		VIRTUAL_ENV_DISABLE_PROMPT: string;
-		USER: string;
 		NVM_BIN: string;
 		POWERLINE_COMMAND: string;
 		npm_config_noproxy: string;
@@ -274,6 +270,8 @@ declare module '$env/dynamic/private' {
 		EDITOR: string;
 		GIT_PAGER: string;
 		PWD: string;
+		USER: string;
+		VIRTUAL_ENV_DISABLE_PROMPT: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}

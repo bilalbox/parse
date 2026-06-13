@@ -3,13 +3,9 @@
 	import { goto } from '$app/navigation';
 	import { settings } from '$lib/settings.svelte';
 	import { toast } from '$lib/toast.svelte';
-	import { RUNTIME_CACHE, isRuntimeCacheable, mediaUrls } from '$lib/cache-convention';
+	import { Library } from '$lib/Library.svelte';
 
-	// Svelte 5 States
-	let articlesCache = $state<any[]>([]);
-	let loading = $state(true);
-	let filter = $state<'active' | 'archived'>('active');
-	let searchQuery = $state('');
+	const library = new Library();
 	
 	// Modal and sheet states
 	let showAddSheet = $state(false);
@@ -24,115 +20,9 @@
 	let appUpdateStatus = $state('');
 	let checkingUpdates = $state(false);
 
-	// Debounced Search using Svelte 5 Effect
-	let searchResults = $state<any[] | null>(null);
-
-	$effect(() => {
-		const query = searchQuery.trim().toLowerCase();
-		if (!query) {
-			searchResults = null;
-			return;
-		}
-
-		const timer = setTimeout(async () => {
-			try {
-				const res = await settings.authFetch(`/api/search?q=${encodeURIComponent(query)}`);
-				if (res.ok) {
-					searchResults = (await res.json()) as any[];
-				} else {
-					throw new Error();
-				}
-			} catch {
-				// Local offline fallback: filter cached list
-				searchResults = articlesCache.filter(a => 
-					(a.title && a.title.toLowerCase().includes(query)) ||
-					(a.author && a.author.toLowerCase().includes(query))
-				);
-			}
-		}, 300);
-
-		return () => clearTimeout(timer);
-	});
-
-	// Derived Articles to display
-	let displayedArticles = $derived(searchResults !== null ? searchResults : articlesCache);
-
-	async function fetchLibrary(): Promise<void> {
-		loading = true;
-		try {
-			const qs = filter === 'archived' ? '?archived=1' : '';
-			const res = await settings.authFetch(`/api/articles${qs}`);
-			if (!res.ok) {
-				if (res.status === 401) {
-					// Token required or invalid, prompt settings
-					showSettingsModal = true;
-					return;
-				}
-				throw new Error('Failed to fetch library');
-			}
-			const data = (await res.json()) as any[];
-			articlesCache = data;
-			
-			// Warm offline cache if active list is fetched online
-			if (filter === 'active' && settings.isOnline) {
-				warmOfflineCache(data);
-			}
-		} catch (err) {
-			console.error('Fetch library failed:', err);
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function warmOfflineCache(articles: any[]): Promise<void> {
-		if (typeof window === 'undefined' || !('caches' in window) || !navigator.onLine) return;
-		
-		try {
-			const cache = await caches.open(RUNTIME_CACHE);
-			const keep = new Set<string>();
-			
-			// The list response itself must survive eviction
-			keep.add('/api/articles');
-			
-			for (const article of articles) {
-				const contentUrl = `/api/articles/${article.id}`;
-				keep.add(contentUrl);
-				
-				try {
-					let res = await cache.match(contentUrl);
-					if (!res) {
-						res = await settings.authFetch(contentUrl);
-						if (!res.ok) continue;
-					}
-					const data = (await res.clone().json()) as any;
-					const payload = JSON.parse(data.content);
-					
-					// Warm the media
-					const urls = mediaUrls(payload.content);
-					for (const m of urls) {
-						keep.add(m);
-						const cachedMedia = await cache.match(m);
-						if (!cachedMedia) {
-							try { await fetch(m); } catch {}
-						}
-					}
-				} catch (err) {
-					console.warn('Warming article failed:', article.id, err);
-				}
-			}
-			
-			// Evict stale cache items
-			const keys = await cache.keys();
-			for (const req of keys) {
-				const path = new URL(req.url).pathname;
-				if (isRuntimeCacheable(path) && !keep.has(path)) {
-					await cache.delete(req);
-				}
-			}
-		} catch (e) {
-			console.warn('Offline cache warm failed:', e);
-		}
-	}
+	// Instead of manual functions, use library instance.
+	// But we still need handleParse to run queue inserts
+	// runUnsubscribe handles external HTTP calls out of Library scope.
 
 	async function handleParse(e: SubmitEvent): Promise<void> {
 		e.preventDefault();
@@ -160,10 +50,9 @@
 			toast.show('Added to parse queue! ✓');
 			urlToParse = '';
 			showAddSheet = false;
-			
 			// Reload active articles after queueing
 			setTimeout(() => {
-				fetchLibrary();
+				library.load();
 			}, 1500);
 		} catch (err: any) {
 			parseError = err.message || 'Parsing failed';
@@ -177,44 +66,23 @@
 			toast.show(`Cannot ${archived ? 'archive' : 'unarchive'} while offline.`, 'error');
 			return;
 		}
-
 		try {
-			const res = await settings.authFetch(`/api/articles/${id}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ archived }),
-			});
-			
-			if (!res.ok) {
-				const data = (await res.json().catch(() => ({}))) as any;
-				throw new Error(data.error || 'Failed to update article');
-			}
-
+			await library.archive(id, archived);
 			toast.show(archived ? 'Archived ✓' : 'Restored to library ✓');
-			await fetchLibrary();
 		} catch (err: any) {
 			toast.show(err.message || 'Failed to archive article', 'error');
 		}
 	}
 
 	async function deleteArticle(id: string): Promise<void> {
-		if (!id) return;
 		if (!settings.isOnline) {
 			toast.show('Cannot delete while offline.', 'error');
 			return;
 		}
-
 		if (!confirm('Delete this article permanently? This also removes its saved images and cannot be undone.')) return;
-
 		try {
-			const res = await settings.authFetch(`/api/articles/${id}`, { method: 'DELETE' });
-			if (!res.ok) {
-				const data = (await res.json().catch(() => ({}))) as any;
-				throw new Error(data.error || 'Failed to delete article');
-			}
-
+			await library.delete(id);
 			toast.show('Deleted ✓');
-			await fetchLibrary();
 		} catch (err: any) {
 			toast.show(err.message || 'Failed to delete article', 'error');
 		}
@@ -246,15 +114,12 @@
 		}
 	}
 
-	function setFilter(newFilter: 'active' | 'archived'): void {
-		filter = newFilter;
-		fetchLibrary();
-	}
-
 	function saveSettings(): void {
 		settings.saveToken(settingsToken);
 		showSettingsModal = false;
-		fetchLibrary();
+		library.load().catch((err) => {
+			if (err.message === 'Unauthorized') showSettingsModal = true;
+		});
 	}
 
 	function cancelSettings(): void {
@@ -289,8 +154,11 @@
 					installingWorker.addEventListener('statechange', () => {
 						if (installingWorker.state === 'installed') {
 							appUpdateStatus = 'Installing update...';
+							checkingUpdates = false;
 						}
 					});
+				} else {
+					checkingUpdates = false;
 				}
 			};
 
@@ -314,7 +182,9 @@
 	onMount(() => {
 		settingsToken = settings.token;
 		document.title = 'Parse | Edge Reading';
-		fetchLibrary();
+		library.load().catch((err) => {
+			if (err.message === 'Unauthorized') showSettingsModal = true;
+		});
 	});
 </script>
 
@@ -339,26 +209,30 @@
 			<h2>Library</h2>
 			<div class="library-tools">
 				<div class="filter-toggle" id="filter-toggle">
-					<button class="filter-btn" class:active={filter === 'active'} onclick={() => setFilter('active')}>Active</button>
-					<button class="filter-btn" class:active={filter === 'archived'} onclick={() => setFilter('archived')}>Archived</button>
+					<button class="filter-btn" class:active={library.filter === 'active'} onclick={() => library.setFilter('active')}>Active</button>
+					<button class="filter-btn" class:active={library.filter === 'archived'} onclick={() => library.setFilter('archived')}>Archived</button>
 				</div>
 				<div class="search-box">
-					<input type="text" id="search-input" bind:value={searchQuery} placeholder="Search...">
+					<input type="text" id="search-input" value={library.query} oninput={(e) => library.search(e.currentTarget.value)} placeholder="Search...">
 				</div>
 			</div>
 		</div>
 		
 		<div id="articles-grid" class="articles-grid">
-			{#if loading}
+			{#if library.loading && library.filteredList.length === 0}
 				<div class="skeleton-card"></div>
 				<div class="skeleton-card"></div>
 				<div class="skeleton-card"></div>
-			{:else if displayedArticles.length === 0}
+			{:else if library.error && library.filteredList.length === 0}
+				<p style="color: var(--error); grid-column: 1/-1; text-align: center; padding: 2rem;">
+					{library.error.message}
+				</p>
+			{:else if library.filteredList.length === 0}
 				<p style="color: var(--text-secondary); grid-column: 1/-1; text-align: center; padding: 2rem;">
-					{filter === 'archived' ? 'No archived articles yet.' : 'Your library is empty. Start by parsing an article above!'}
+					{library.filter === 'archived' ? 'No archived articles yet.' : 'Your library is empty. Start by parsing an article above!'}
 				</p>
 			{:else}
-				{#each displayedArticles as article (article.id)}
+				{#each library.filteredList as article (article.id)}
 					<div class="article-card" onclick={() => goto(`/article/${article.id}`)} onkeydown={() => {}} role="button" tabindex="0">
 						<h3 class="card-title">{article.title}</h3>
 						<div class="card-meta">
@@ -378,10 +252,10 @@
 							{/if}
 							<button 
 								class="card-btn card-archive" 
-								onclick={(e) => { e.stopPropagation(); archiveArticle(article.id, filter !== 'archived'); }}
+								onclick={(e) => { e.stopPropagation(); archiveArticle(article.id, library.filter !== 'archived'); }}
 								disabled={!settings.isOnline}
 							>
-								{filter === 'archived' ? 'Unarchive' : 'Archive'}
+								{library.filter === 'archived' ? 'Unarchive' : 'Archive'}
 							</button>
 							<button 
 								class="card-btn card-delete" 

@@ -18,6 +18,7 @@
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@types/mozilla-readability": "^0.2.1",
     "@types/node": "^25.9.3",
+    "@types/service-worker-mock": "^2.0.4",
     "svelte": "^5.56.3",
     "svelte-check": "^4.6.0",
     "typescript": "^6.0.3",

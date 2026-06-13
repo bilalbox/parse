@@ -16,6 +16,7 @@
 			in:fly={{ x: 200, duration: 250, delay: 150 }}
 			out:fly={{ x: -100, duration: 150 }}
 			style="position: absolute; width: 100%; height: 100%; top: 0; left: 0;"
+			onoutrostart={(e) => { e.currentTarget.style.pointerEvents = 'none'; }}
 		>
 			{@render children()}
 		</div>

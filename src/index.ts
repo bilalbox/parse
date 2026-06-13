@@ -4,7 +4,7 @@ import PostalMime from 'postal-mime';
 import { extractArticle } from './extract';
 import { createWebSource } from './sources/web';
 import { createEmailSource } from './sources/email';
-import { extractMediaKeys, serveMedia } from './media';
+import { serveMedia } from './media';
 import { articlePlainText, createArticleStore } from './store';
 import { summarizeArticle } from './summarize';
 
@@ -125,27 +125,16 @@ app.patch('/api/articles/:id', async (c) => {
 	return c.json({ success: true, id, archived });
 });
 
-// Permanently delete an article and purge its images from R2. The stored
-// content references uploaded images as /media/<key>, so we pull those keys
-// out and delete them before dropping the row (FTS cleanup runs via trigger).
+// Permanently delete an article and purge its images from R2. The store
+// handles extracting media keys and deleting them before dropping the row.
 app.delete('/api/articles/:id', async (c) => {
 	const id = c.req.param('id');
-	const store = createArticleStore(c.env.DB);
-	const row = await store.get(id);
+	const store = createArticleStore(c.env.DB, c.env.MEDIA_BUCKET);
+	const removed = await store.remove(id);
 
-	if (!row) return c.json({ error: 'Not found' }, 404);
+	if (!removed) return c.json({ error: 'Not found' }, 404);
 
-	const keys = extractMediaKeys(row.content);
-	if (keys.length) {
-		try {
-			await c.env.MEDIA_BUCKET.delete(keys);
-		} catch (e) {
-			console.error('Failed to purge R2 media for article', id, e);
-		}
-	}
-
-	await store.remove(id);
-	return c.json({ success: true, id, mediaDeleted: keys.length });
+	return c.json({ success: true, id });
 });
 
 // Endpoint to serve images from R2

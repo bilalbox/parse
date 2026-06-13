@@ -47,11 +47,15 @@ export interface ArticleStore {
 	create(article: Article): Promise<void>;
 	setArchived(id: string, archived: boolean): Promise<boolean>;
 	saveSummary(id: string, summary: string): Promise<void>;
-	remove(id: string): Promise<void>;
+	remove(id: string): Promise<boolean>;
 	search(query: string): Promise<SearchHit[]>;
 }
 
-export function createArticleStore(db: D1Database): ArticleStore {
+export interface MediaStorageAdapter {
+	delete(keys: string | string[]): Promise<void>;
+}
+
+export function createArticleStore(db: D1Database, mediaBucket?: MediaStorageAdapter): ArticleStore {
 	return {
 		// Default library is active items; pass archived=true for the archive.
 		async list(archived) {
@@ -86,10 +90,38 @@ export function createArticleStore(db: D1Database): ArticleStore {
 			await db.prepare('UPDATE articles SET summary = ? WHERE id = ?').bind(summary, id).run();
 		},
 
-		// Drops the row; FTS cleanup runs via trigger. Media purge is the
-		// caller's responsibility (it owns the R2 binding).
+		// Permanently removes an Article from the Library/Archive and purges
+		// its associated Media. Returns true if removed, false if not found.
 		async remove(id) {
+			if (mediaBucket) {
+				const row = await db.prepare('SELECT content FROM articles WHERE id = ?').bind(id).first<{content: string | null}>();
+				if (!row) return false;
+
+				// extractMediaKeys logic
+				if (row.content) {
+					const keys = new Set<string>();
+					const re = /\/media\/([A-Za-z0-9._-]+)/g;
+					let match: RegExpExecArray | null;
+					while ((match = re.exec(row.content)) !== null) {
+						keys.add(match[1]);
+					}
+					const keysArray = [...keys];
+					if (keysArray.length > 0) {
+						try {
+							await mediaBucket.delete(keysArray);
+						} catch (e) {
+							console.error('Failed to purge R2 media for article', id, e);
+						}
+					}
+				}
+			} else {
+				// Fallback if no bucket provided, just ensure it exists
+				const row = await db.prepare('SELECT 1 FROM articles WHERE id = ?').bind(id).first();
+				if (!row) return false;
+			}
+
 			await db.prepare('DELETE FROM articles WHERE id = ?').bind(id).run();
+			return true;
 		},
 
 		async search(query) {
