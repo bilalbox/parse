@@ -34,6 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsCloseBtn = document.getElementById('settings-close-btn');
     const tokenCancelBtn = document.getElementById('token-cancel-btn');
     const btnTts = document.getElementById('btn-tts');
+    const updateBtn = document.getElementById('update-btn');
+    const updateStatus = document.getElementById('update-status');
 
     // State
     let currentFontSize = 1.15;
@@ -211,6 +213,15 @@ document.addEventListener('DOMContentLoaded', () => {
             this.articleTitle = '';
             this.articleAuthor = '';
             this.featuredImage = '';
+            if (typeof document !== 'undefined') {
+                this.silentAudio = document.createElement('audio');
+                this.silentAudio.src = '/silence.wav';
+                this.silentAudio.loop = true;
+                this.silentAudio.style.display = 'none';
+                document.body.appendChild(this.silentAudio);
+            } else {
+                this.silentAudio = null;
+            }
 
             this.playerPanel = document.getElementById('tts-player');
             this.playPauseBtn = document.getElementById('player-play-pause');
@@ -247,6 +258,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             this.speedSelect.addEventListener('change', (e) => {
                 this.selectedSpeed = parseFloat(e.target.value);
+                if (this.silentAudio) {
+                    this.silentAudio.playbackRate = this.selectedSpeed;
+                }
+                this.updateMediaSessionPosition();
                 // SpeechSynthesis can't retune a sentence mid-utterance, so if we're
                 // playing, restart the current sentence at the new rate.
                 if (this.isPlaying) {
@@ -373,22 +388,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setupMediaSession() {
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: this.articleTitle,
-                    artist: this.articleAuthor || 'Parse Reader',
-                    album: 'Articles',
-                    artwork: [
-                        { src: this.featuredImage || '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }
-                    ]
-                });
+            if (!('mediaSession' in navigator)) return;
 
-                navigator.mediaSession.setActionHandler('play', () => this.play());
-                navigator.mediaSession.setActionHandler('pause', () => this.pause());
-                navigator.mediaSession.setActionHandler('previoustrack', () => this.prevSentence());
-                navigator.mediaSession.setActionHandler('nexttrack', () => this.nextSentence());
-                navigator.mediaSession.setActionHandler('seekbackward', () => this.prevSentence());
-                navigator.mediaSession.setActionHandler('seekforward', () => this.nextSentence());
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: this.articleTitle,
+                artist: this.articleAuthor || 'Parse Reader',
+                album: 'Articles',
+                artwork: [
+                    { src: this.featuredImage || '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }
+                ]
+            });
+
+            navigator.mediaSession.setActionHandler('play', () => this.play());
+            navigator.mediaSession.setActionHandler('pause', () => this.pause());
+            navigator.mediaSession.setActionHandler('previoustrack', () => this.prevSentence());
+            navigator.mediaSession.setActionHandler('nexttrack', () => this.nextSentence());
+            navigator.mediaSession.setActionHandler('seekbackward', () => this.prevSentence());
+            navigator.mediaSession.setActionHandler('seekforward', () => this.nextSentence());
+
+            try {
+                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                    if (details.seekTime !== undefined) {
+                        const targetIdx = Math.floor(details.seekTime);
+                        const clampedIdx = Math.max(0, Math.min(targetIdx, this.sentences.length - 1));
+                        this.jumpToSentence(clampedIdx);
+                    }
+                });
+            } catch (err) {
+                console.warn('[tts] seekto handler registration failed:', err);
+            }
+        }
+
+        updateMediaSessionPosition() {
+            if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession) || this.sentences.length === 0) {
+                return;
+            }
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: this.sentences.length,
+                    playbackRate: this.selectedSpeed || 1.0,
+                    position: Math.max(0, Math.min(this.currentIndex, this.sentences.length))
+                });
+            } catch (e) {
+                console.warn('[tts] Failed to set mediaSession position state:', e);
             }
         }
 
@@ -466,6 +508,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (this.sentences.length === 0 || !this.hasVoice) return;
             this.isPlaying = true;
             this.setupMediaSession();
+            if (this.silentAudio) {
+                this.silentAudio.play().catch(err => {
+                    console.warn('[tts] silentAudio play failed:', err);
+                });
+            }
             this.playSentence(this.currentIndex);
         }
 
@@ -475,6 +522,9 @@ document.addEventListener('DOMContentLoaded', () => {
             this.cancelLocalSpeech();
             this.setPlayButton(false);
             this.setMediaPlaybackState('paused');
+            if (this.silentAudio) {
+                this.silentAudio.pause();
+            }
         }
 
         stop() {
@@ -485,6 +535,10 @@ document.addEventListener('DOMContentLoaded', () => {
             this.updateProgress();
             this.setPlayButton(false);
             this.setMediaPlaybackState('none');
+            if (this.silentAudio) {
+                this.silentAudio.pause();
+                this.silentAudio.currentTime = 0;
+            }
         }
 
         jumpToSentence(index) {
@@ -554,6 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             this.updateProgress();
+            this.updateMediaSessionPosition();
 
             if (!('speechSynthesis' in window)) return;
 
@@ -772,6 +827,79 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     settingsBtn.addEventListener('click', () => showTokenModal());
+
+    if (updateBtn) {
+        updateBtn.addEventListener('click', async () => {
+            if (!('serviceWorker' in navigator)) {
+                showToast('Offline updates are not supported in this browser.', 'error');
+                return;
+            }
+
+            updateBtn.disabled = true;
+            updateBtn.textContent = 'Checking...';
+            updateStatus.textContent = '';
+
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (!registration) {
+                    updateStatus.textContent = 'Offline cache is not active yet.';
+                    updateBtn.disabled = false;
+                    updateBtn.textContent = 'Check for Updates';
+                    return;
+                }
+
+                let updateFound = false;
+                
+                const onUpdateFound = () => {
+                    updateFound = true;
+                    updateStatus.textContent = 'Downloading update...';
+                    
+                    const installingWorker = registration.installing;
+                    if (installingWorker) {
+                        installingWorker.addEventListener('statechange', () => {
+                            if (installingWorker.state === 'installed') {
+                                updateStatus.textContent = 'Installing update...';
+                            }
+                        });
+                    }
+                };
+
+                registration.addEventListener('updatefound', onUpdateFound);
+
+                await registration.update();
+
+                // If no update was found after a brief moment, clear the state.
+                setTimeout(() => {
+                    registration.removeEventListener('updatefound', onUpdateFound);
+                    if (!updateFound) {
+                        updateStatus.textContent = 'App is up to date.';
+                        updateBtn.disabled = false;
+                        updateBtn.textContent = 'Check for Updates';
+                    }
+                }, 1500);
+
+            } catch (err) {
+                console.error('Update check failed:', err);
+                updateStatus.textContent = 'Check failed. Try again.';
+                updateBtn.disabled = false;
+                updateBtn.textContent = 'Check for Updates';
+            }
+        });
+    }
+
+    if ('serviceWorker' in navigator) {
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return;
+            if (navigator.serviceWorker.controller) {
+                refreshing = true;
+                showToast('Update installed! Reloading app...', 'info', 2000);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            }
+        });
+    }
 
     // ── Initialization ─────────────────────────────────────────────────────────
 

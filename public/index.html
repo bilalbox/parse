@@ -192,6 +192,15 @@
                 <input type="password" id="token-input" placeholder="Paste token here..." autocomplete="off" spellcheck="false">
             </div>
 
+            <div class="settings-group">
+                <label for="update-btn">App Update</label>
+                <p class="settings-help">Pull down the latest version of the app to your device for offline use.</p>
+                <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.25rem;">
+                    <button id="update-btn" class="token-cancel-btn" style="padding: 0.6rem 1rem; font-size: 0.9rem; margin: 0;">Check for Updates</button>
+                    <span id="update-status" class="settings-help"></span>
+                </div>
+            </div>
+
             <div id="token-error" class="error-msg"></div>
             
             <div class="modal-footer">

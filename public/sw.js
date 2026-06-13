@@ -1,4 +1,4 @@
-// Offline-first service worker (see docs/adr/0002).
+// Offline-first service worker (see docs/adr/0002). Updated for v2 cache.
 //
 // - The app shell is precached on install and served cache-first.
 // - Article content (GET /api/articles*) and media (GET /media/*) use

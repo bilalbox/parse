@@ -8,7 +8,7 @@
 self.PARSE_CACHE = (() => {
 	// Bump SHELL_CACHE on shell changes to bust the precache; RUNTIME_CACHE holds
 	// the mirrored Library (Article content + media).
-	const SHELL_CACHE = 'parse-shell-v1';
+	const SHELL_CACHE = 'parse-shell-v2';
 	const RUNTIME_CACHE = 'parse-runtime-v1';
 
 	// Precached app shell, served cache-first. cache-convention.js is itself in
@@ -21,6 +21,7 @@ self.PARSE_CACHE = (() => {
 		'/style.css',
 		'/manifest.json',
 		'/icon.svg',
+		'/silence.wav',
 	];
 
 	// The /media/<key> reference shape, used to discover an Article's images in
