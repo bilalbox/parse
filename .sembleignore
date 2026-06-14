@@ -1,0 +1,37 @@
+# deps
+node_modules/
+vendor/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+# build output
+dist/
+build/
+out/
+target/
+bin/
+obj/
+*.egg-info/
+.next/
+.svelte-kit/
+# lockfiles & generated
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+poetry.lock
+Cargo.lock
+go.sum
+*.min.js
+*.min.css
+*.map
+# ide / os / noise
+.git/
+.idea/
+.vscode/
+.DS_Store
+coverage/
+*.log
