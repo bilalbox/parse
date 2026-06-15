@@ -165,6 +165,8 @@ class TTSManager {
 		} else {
 			this.currentIndex = 0;
 		}
+
+		this.updateMediaSession();
 	}
 
 	/**

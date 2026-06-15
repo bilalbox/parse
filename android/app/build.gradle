@@ -3,12 +3,26 @@ apply plugin: 'com.android.application'
 android {
     namespace = "com.parse.app"
     compileSdk = rootProject.ext.compileSdkVersion
+
+    def versionCodeStr = System.getenv('VERSION_CODE') ?: "1"
+    def versionNameStr = System.getenv('VERSION_NAME') ?: "1.0"
+
+    signingConfigs {
+        release {
+            if (System.getenv("KEYSTORE_PATH")) {
+                storeFile file(System.getenv("KEYSTORE_PATH"))
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
     defaultConfig {
         applicationId "com.parse.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode versionCodeStr.toInteger()
+        versionName versionNameStr
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -20,6 +34,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (System.getenv("KEYSTORE_PATH")) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
