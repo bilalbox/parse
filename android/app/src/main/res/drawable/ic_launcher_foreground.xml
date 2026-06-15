@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground: 108dp canvas, safe zone is center 72dp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Line 1 -->
+    <path android:fillColor="#6366f1"
+        android:pathData="M29.5,25 L78.5,25 Q81,25 81,27.5 L81,30 Q81,32.5 78.5,32.5 L29.5,32.5 Q27,32.5 27,30 L27,27.5 Q27,25 29.5,25 Z" />
+
+    <!-- Line 2 (opacity 0.75) -->
+    <path android:fillColor="#6366f1" android:fillAlpha="0.75"
+        android:pathData="M29.5,36 L78.5,36 Q81,36 81,38.5 L81,41 Q81,43.5 78.5,43.5 L29.5,43.5 Q27,43.5 27,41 L27,38.5 Q27,36 29.5,36 Z" />
+
+    <!-- Line 3 short (opacity 0.5) -->
+    <path android:fillColor="#6366f1" android:fillAlpha="0.5"
+        android:pathData="M29.5,47 L62.5,47 Q65,47 65,49.5 L65,52 Q65,54.5 62.5,54.5 L29.5,54.5 Q27,54.5 27,52 L27,49.5 Q27,47 29.5,47 Z" />
+
+    <!-- Line 4 -->
+    <path android:fillColor="#6366f1"
+        android:pathData="M29.5,63 L78.5,63 Q81,63 81,65.5 L81,68 Q81,70.5 78.5,70.5 L29.5,70.5 Q27,70.5 27,68 L27,65.5 Q27,63 29.5,63 Z" />
+
+    <!-- Line 5 (opacity 0.75) -->
+    <path android:fillColor="#6366f1" android:fillAlpha="0.75"
+        android:pathData="M29.5,74 L78.5,74 Q81,74 81,76.5 L81,79 Q81,81.5 78.5,81.5 L29.5,81.5 Q27,81.5 27,79 L27,76.5 Q27,74 29.5,74 Z" />
+
+    <!-- Line 6 short (opacity 0.5) -->
+    <path android:fillColor="#6366f1" android:fillAlpha="0.5"
+        android:pathData="M29.5,85 L53.5,85 Q56,85 56,87.5 L56,90 Q56,92.5 53.5,92.5 L29.5,92.5 Q27,92.5 27,90 L27,87.5 Q27,85 29.5,85 Z" />
+
+</vector>
