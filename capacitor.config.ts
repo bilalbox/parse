@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.parse.app',
+  appId: 'com.twenty3p.parse',
   appName: 'parse',
   webDir: 'public'
 };

@@ -1,4 +1,4 @@
-package com.parse.app;
+package com.twenty3p.parse;
 
 import com.getcapacitor.BridgeActivity;
 
