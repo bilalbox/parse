@@ -209,6 +209,12 @@
 		}
 	});
 
+	function rewriteHtmlContent(html: string): string {
+		if (!html) return '';
+		if (!settings.serverUrl) return html;
+		return html.replace(/(src|srcset)=(['"])\/media\//g, `$1=$2${settings.serverUrl}/media/`);
+	}
+
 	// Reactively bind article content to global TTS engine once loaded and mounted via Svelte 5 attachment
 	function ttsAttachment(element: HTMLElement): void {
 		if (!articleData) return;
@@ -288,13 +294,13 @@
 					<details class="summary-details details-collapsible" open>
 						<summary><strong>AI Summary</strong></summary>
 						<div class="summary-content">
-							{@html renderSummary(articleData.summary)}
+							{@html rewriteHtmlContent(renderSummary(articleData.summary))}
 						</div>
 					</details>
 				{/if}
 				
 				<div class="article-body">
-					{@html payload.content}
+					{@html rewriteHtmlContent(payload.content)}
 				</div>
 			</div>
 		{/if}

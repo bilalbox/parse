@@ -115,6 +115,7 @@ var TTSManager = class {
 		this.sentences = this.prepareTtsContent(container);
 		if (this.isPlaying && this.articleId === articleId) this.highlightSentence(this.currentIndex);
 		else this.currentIndex = 0;
+		this.updateMediaSession();
 	}
 	/**
 	* Split a block of text into sentences using the platform's locale-aware
@@ -214,20 +215,42 @@ var TTSManager = class {
 		else this.play();
 	}
 	play() {
-		if (this.sentences.length === 0 || !this.hasVoice) return;
+		if (this.sentences.length === 0) return;
 		this.isPlaying = true;
 		this.visible = true;
+		this.updateMediaSession();
 		this.playSentence(this.currentIndex);
 	}
 	pause() {
 		this.isPlaying = false;
 		this.cancelLocalSpeech();
+		this.updateMediaSession();
 	}
 	stop() {
 		this.isPlaying = false;
 		this.cancelLocalSpeech();
 		this.clearHighlight();
 		this.currentIndex = 0;
+		this.updateMediaSession();
+	}
+	updateMediaSession() {
+		if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title: this.articleTitle || "Parse Article",
+				artist: this.articleAuthor || "Unknown Author",
+				album: "Parse Library",
+				artwork: this.featuredImage ? [{
+					src: this.featuredImage,
+					sizes: "512x512",
+					type: "image/jpeg"
+				}] : []
+			});
+			navigator.mediaSession.playbackState = this.isPlaying ? "playing" : "paused";
+			navigator.mediaSession.setActionHandler("play", () => this.play());
+			navigator.mediaSession.setActionHandler("pause", () => this.pause());
+			navigator.mediaSession.setActionHandler("previoustrack", () => this.prevSentence());
+			navigator.mediaSession.setActionHandler("nexttrack", () => this.nextSentence());
+		}
 	}
 	jumpToSentence(index) {
 		this.clearHighlight();
@@ -281,6 +304,7 @@ var TTSManager = class {
 		if (shouldCancel) this.cancelLocalSpeech();
 		const utterance = new SpeechSynthesisUtterance(sentence.text);
 		this.currentUtterance = utterance;
+		utterance.lang = this.contentLang;
 		const voice = window.speechSynthesis.getVoices().find((v) => v.name === this.selectedVoice);
 		if (voice) {
 			utterance.lang = voice.lang;
@@ -304,9 +328,7 @@ var TTSManager = class {
 			}
 			this.stop();
 		};
-		setTimeout(() => {
-			if (this.isPlaying && this.currentUtterance === utterance) window.speechSynthesis.speak(utterance);
-		}, 0);
+		if (this.isPlaying) window.speechSynthesis.speak(utterance);
 	}
 };
 var tts = new TTSManager();

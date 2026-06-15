@@ -71,18 +71,34 @@ class DefaultNetworkAdapter implements NetworkAdapter {
 }
 
 class DefaultCacheAdapter implements CacheAdapter {
+	private getRequestUrl(url: string): string {
+		let fullUrl = url;
+		if (settings.serverUrl && url.startsWith('/')) {
+			fullUrl = `${settings.serverUrl}${url}`;
+		} else if (url.startsWith('/')) {
+			if (typeof window !== 'undefined') {
+				fullUrl = `${window.location.origin}${url}`;
+			}
+		}
+		const delimiter = fullUrl.includes('?') ? '&' : '?';
+		return settings.token ? `${fullUrl}${delimiter}token=${settings.token}` : fullUrl;
+	}
+
 	async warm(articles: ArticleListItem[]): Promise<void> {
 		if (typeof window === 'undefined' || !('caches' in window) || !navigator.onLine) return;
 		try {
 			const cache = await caches.open(RUNTIME_CACHE);
 			const keep = new Set<string>();
-			keep.add('/api/articles');
+			
+			const listUrl = this.getRequestUrl('/api/articles');
+			keep.add(listUrl);
 			
 			for (const article of articles) {
 				const contentUrl = `/api/articles/${article.id}`;
-				keep.add(contentUrl);
+				const finalContentUrl = this.getRequestUrl(contentUrl);
+				keep.add(finalContentUrl);
 				try {
-					let res = await cache.match(contentUrl);
+					let res = await cache.match(finalContentUrl);
 					if (!res) {
 						res = await settings.authFetch(contentUrl);
 						if (!res.ok) continue;
@@ -91,10 +107,11 @@ class DefaultCacheAdapter implements CacheAdapter {
 					const payload = JSON.parse(data.content);
 					const urls = mediaUrls(payload.content);
 					for (const m of urls) {
-						keep.add(m);
-						const cachedMedia = await cache.match(m);
+						const finalMediaUrl = this.getRequestUrl(m);
+						keep.add(finalMediaUrl);
+						const cachedMedia = await cache.match(finalMediaUrl);
 						if (!cachedMedia) {
-							try { await fetch(m); } catch {}
+							try { await fetch(finalMediaUrl); } catch {}
 						}
 					}
 				} catch (err) {
@@ -104,8 +121,7 @@ class DefaultCacheAdapter implements CacheAdapter {
 			
 			const keys = await cache.keys();
 			for (const req of keys) {
-				const path = new URL(req.url).pathname;
-				if (isRuntimeCacheable(path) && !keep.has(path)) {
+				if (isRuntimeCacheable(new URL(req.url).pathname) && !keep.has(req.url)) {
 					await cache.delete(req);
 				}
 			}

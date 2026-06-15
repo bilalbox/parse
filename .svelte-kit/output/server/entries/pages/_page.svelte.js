@@ -28,11 +28,15 @@ var DefaultNetworkAdapter = class {
 			if (res.status === 401) throw new Error("Unauthorized");
 			throw new Error("Failed to fetch library");
 		}
+		const contentType = res.headers.get("content-type");
+		if (contentType && contentType.includes("text/html")) throw new Error("Server configuration error: received HTML instead of JSON. Please check your Server URL and token.");
 		return await res.json();
 	}
 	async search(query) {
 		const res = await settings.authFetch(`/api/search?q=${encodeURIComponent(query)}`);
 		if (!res.ok) throw new Error("Search failed");
+		const contentType = res.headers.get("content-type");
+		if (contentType && contentType.includes("text/html")) throw new Error("Search failed: Server configuration error");
 		return await res.json();
 	}
 	async archive(id, archived) {
@@ -55,17 +59,28 @@ var DefaultNetworkAdapter = class {
 	}
 };
 var DefaultCacheAdapter = class {
+	getRequestUrl(url) {
+		let fullUrl = url;
+		if (settings.serverUrl && url.startsWith("/")) fullUrl = `${settings.serverUrl}${url}`;
+		else if (url.startsWith("/")) {
+			if (typeof window !== "undefined") fullUrl = `${window.location.origin}${url}`;
+		}
+		const delimiter = fullUrl.includes("?") ? "&" : "?";
+		return settings.token ? `${fullUrl}${delimiter}token=${settings.token}` : fullUrl;
+	}
 	async warm(articles) {
 		if (typeof window === "undefined" || !("caches" in window) || !navigator.onLine) return;
 		try {
 			const cache = await caches.open(RUNTIME_CACHE);
 			const keep = /* @__PURE__ */ new Set();
-			keep.add("/api/articles");
+			const listUrl = this.getRequestUrl("/api/articles");
+			keep.add(listUrl);
 			for (const article of articles) {
 				const contentUrl = `/api/articles/${article.id}`;
-				keep.add(contentUrl);
+				const finalContentUrl = this.getRequestUrl(contentUrl);
+				keep.add(finalContentUrl);
 				try {
-					let res = await cache.match(contentUrl);
+					let res = await cache.match(finalContentUrl);
 					if (!res) {
 						res = await settings.authFetch(contentUrl);
 						if (!res.ok) continue;
@@ -73,9 +88,10 @@ var DefaultCacheAdapter = class {
 					const data = await res.clone().json();
 					const urls = mediaUrls(JSON.parse(data.content).content);
 					for (const m of urls) {
-						keep.add(m);
-						if (!await cache.match(m)) try {
-							await fetch(m);
+						const finalMediaUrl = this.getRequestUrl(m);
+						keep.add(finalMediaUrl);
+						if (!await cache.match(finalMediaUrl)) try {
+							await fetch(finalMediaUrl);
 						} catch {}
 					}
 				} catch (err) {
@@ -83,10 +99,7 @@ var DefaultCacheAdapter = class {
 				}
 			}
 			const keys = await cache.keys();
-			for (const req of keys) {
-				const path = new URL(req.url).pathname;
-				if (isRuntimeCacheable(path) && !keep.has(path)) await cache.delete(req);
-			}
+			for (const req of keys) if (isRuntimeCacheable(new URL(req.url).pathname) && !keep.has(req.url)) await cache.delete(req);
 		} catch (e) {
 			console.warn("Offline cache warm failed:", e);
 		}

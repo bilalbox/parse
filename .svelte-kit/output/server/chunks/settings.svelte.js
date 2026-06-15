@@ -2,6 +2,7 @@ import "./internal.js";
 //#region src/lib/settings.svelte.ts
 var SettingsStore = class {
 	token = "";
+	serverUrl = "";
 	theme = "dark";
 	fontSize = 1.15;
 	fontFamily = "sans";
@@ -10,6 +11,7 @@ var SettingsStore = class {
 	constructor() {
 		if (typeof window !== "undefined") {
 			this.token = localStorage.getItem("parse_token") || "";
+			this.serverUrl = localStorage.getItem("parse_server_url") || "";
 			this.theme = localStorage.getItem("theme") || "dark";
 			const storedFontSize = localStorage.getItem("parse_font_size");
 			if (storedFontSize) this.fontSize = parseFloat(storedFontSize);
@@ -31,6 +33,10 @@ var SettingsStore = class {
 	saveToken(token) {
 		this.token = token;
 		if (typeof window !== "undefined") localStorage.setItem("parse_token", token);
+	}
+	saveServerUrl(url) {
+		this.serverUrl = url.replace(/\/$/, "");
+		if (typeof window !== "undefined") localStorage.setItem("parse_server_url", this.serverUrl);
 	}
 	toggleTheme() {
 		const nextTheme = this.theme === "dark" ? "light" : "dark";
@@ -58,8 +64,10 @@ var SettingsStore = class {
 	async authFetch(url, options = {}) {
 		const headers = new Headers(options.headers || {});
 		if (this.token) headers.set("Authorization", `Bearer ${this.token}`);
-		const delimiter = url.includes("?") ? "&" : "?";
-		const finalUrl = this.token ? `${url}${delimiter}token=${this.token}` : url;
+		let fullUrl = url;
+		if (this.serverUrl && url.startsWith("/")) fullUrl = `${this.serverUrl}${url}`;
+		const delimiter = fullUrl.includes("?") ? "&" : "?";
+		const finalUrl = this.token ? `${fullUrl}${delimiter}token=${this.token}` : fullUrl;
 		return fetch(finalUrl, {
 			...options,
 			headers

@@ -306,7 +306,7 @@ class TTSManager {
 	}
 
 	play() {
-		if (this.sentences.length === 0 || !this.hasVoice) return;
+		if (this.sentences.length === 0) return;
 		this.isPlaying = true;
 		this.visible = true;
 		this.updateMediaSession();
@@ -416,6 +416,9 @@ class TTSManager {
 		const utterance = new SpeechSynthesisUtterance(sentence.text);
 		this.currentUtterance = utterance;
 
+		// Default to content language (en or ar)
+		utterance.lang = this.contentLang;
+
 		const voice = window.speechSynthesis.getVoices().find(v => v.name === this.selectedVoice);
 		if (voice) {
 			utterance.lang = voice.lang;
@@ -447,11 +450,9 @@ class TTSManager {
 			this.stop();
 		};
 
-		setTimeout(() => {
-			if (this.isPlaying && this.currentUtterance === utterance) {
-				window.speechSynthesis.speak(utterance);
-			}
-		}, 0);
+		if (this.isPlaying) {
+			window.speechSynthesis.speak(utterance);
+		}
 	}
 }
 

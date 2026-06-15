@@ -32,6 +32,11 @@ app.use('/api/*', cors({
 	allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 	allowHeaders: ['Authorization', 'Content-Type']
 }));
+app.use('/media/*', cors({
+	origin: '*',
+	allowMethods: ['GET', 'OPTIONS'],
+	allowHeaders: ['Authorization', 'Content-Type']
+}));
 app.use('/api/*', requireAuth);
 
 // Root route handled by Cloudflare Static Assets (public/index.html)
