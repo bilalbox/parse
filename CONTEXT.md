@@ -36,5 +36,5 @@ The single source of truth for how the offline Library is cached (ADR-0002): the
 _Avoid_: cache config, sw helpers
 
 **Narration**:
-Reading an Article aloud, sentence by sentence with the current sentence highlighted. Synthesized entirely in the browser (Web Speech API), using a voice installed on the device for the Article's language — never a server-rendered audio stream. Arabic Articles are not narrated (no client Arabic voice exists on the target devices); their play control is hidden.
+Reading an Article aloud, sentence by sentence with the current sentence highlighted. Synthesized entirely in the client (Web Speech API via browser or Capacitor WebView), using a voice installed on the device for the Article's language — never a server-rendered audio stream. In native app contexts, JS execution is kept awake via a foreground service. Arabic Articles are not narrated (no client Arabic voice exists on the target devices); their play control is hidden.
 _Avoid_: TTS, audio, playback

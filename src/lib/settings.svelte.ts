@@ -1,5 +1,6 @@
 class SettingsStore {
 	token = $state('');
+	serverUrl = $state('');
 	theme = $state('dark');
 	fontSize = $state(1.15);
 	fontFamily = $state('sans'); // 'sans' | 'serif' | 'amiri' | 'cairo'
@@ -9,6 +10,7 @@ class SettingsStore {
 	constructor() {
 		if (typeof window !== 'undefined') {
 			this.token = localStorage.getItem('parse_token') || '';
+			this.serverUrl = localStorage.getItem('parse_server_url') || '';
 			this.theme = localStorage.getItem('theme') || 'dark';
 			const storedFontSize = localStorage.getItem('parse_font_size');
 			if (storedFontSize) this.fontSize = parseFloat(storedFontSize);
@@ -34,6 +36,13 @@ class SettingsStore {
 		this.token = token;
 		if (typeof window !== 'undefined') {
 			localStorage.setItem('parse_token', token);
+		}
+	}
+
+	saveServerUrl(url: string) {
+		this.serverUrl = url.replace(/\/$/, ''); // Remove trailing slash if present
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('parse_server_url', this.serverUrl);
 		}
 	}
 
@@ -76,9 +85,16 @@ class SettingsStore {
 		if (this.token) {
 			headers.set('Authorization', `Bearer ${this.token}`);
 		}
+		
+		// If a server URL is configured and the URL is relative, prepend it
+		let fullUrl = url;
+		if (this.serverUrl && url.startsWith('/')) {
+			fullUrl = `${this.serverUrl}${url}`;
+		}
+
 		// Also support token as query param if needed (standard in Hono fallback)
-		const delimiter = url.includes('?') ? '&' : '?';
-		const finalUrl = this.token ? `${url}${delimiter}token=${this.token}` : url;
+		const delimiter = fullUrl.includes('?') ? '&' : '?';
+		const finalUrl = this.token ? `${fullUrl}${delimiter}token=${this.token}` : fullUrl;
 		return fetch(finalUrl, { ...options, headers });
 	}
 }

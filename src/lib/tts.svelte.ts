@@ -307,12 +307,14 @@ class TTSManager {
 		if (this.sentences.length === 0 || !this.hasVoice) return;
 		this.isPlaying = true;
 		this.visible = true;
+		this.updateMediaSession();
 		this.playSentence(this.currentIndex);
 	}
 
 	pause() {
 		this.isPlaying = false;
 		this.cancelLocalSpeech();
+		this.updateMediaSession();
 	}
 
 	stop() {
@@ -320,6 +322,23 @@ class TTSManager {
 		this.cancelLocalSpeech();
 		this.clearHighlight();
 		this.currentIndex = 0;
+		this.updateMediaSession();
+	}
+
+	updateMediaSession() {
+		if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title: this.articleTitle || 'Parse Article',
+				artist: this.articleAuthor || 'Unknown Author',
+				album: 'Parse Library',
+				artwork: this.featuredImage ? [{ src: this.featuredImage, sizes: '512x512', type: 'image/jpeg' }] : []
+			});
+			navigator.mediaSession.playbackState = this.isPlaying ? 'playing' : 'paused';
+			navigator.mediaSession.setActionHandler('play', () => this.play());
+			navigator.mediaSession.setActionHandler('pause', () => this.pause());
+			navigator.mediaSession.setActionHandler('previoustrack', () => this.prevSentence());
+			navigator.mediaSession.setActionHandler('nexttrack', () => this.nextSentence());
+		}
 	}
 
 	jumpToSentence(index: number) {

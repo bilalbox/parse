@@ -17,6 +17,7 @@
 	let parseError = $state('');
 	
 	let settingsToken = $state('');
+	let settingsServerUrl = $state('');
 	let appUpdateStatus = $state('');
 	let checkingUpdates = $state(false);
 
@@ -116,6 +117,7 @@
 
 	function saveSettings(): void {
 		settings.saveToken(settingsToken);
+		settings.saveServerUrl(settingsServerUrl);
 		showSettingsModal = false;
 		library.load().catch((err) => {
 			if (err.message === 'Unauthorized') showSettingsModal = true;
@@ -124,6 +126,7 @@
 
 	function cancelSettings(): void {
 		settingsToken = settings.token;
+		settingsServerUrl = settings.serverUrl;
 		showSettingsModal = false;
 	}
 
@@ -181,6 +184,7 @@
 
 	onMount(() => {
 		settingsToken = settings.token;
+		settingsServerUrl = settings.serverUrl;
 		document.title = 'Parse | Edge Reading';
 		library.load().catch((err) => {
 			if (err.message === 'Unauthorized') showSettingsModal = true;
@@ -309,6 +313,12 @@
 				<button id="settings-close-btn" class="modal-close-btn" onclick={cancelSettings} title="Close Settings">×</button>
 			</div>
 			
+			<div class="settings-group">
+				<label for="server-input">Server URL</label>
+				<p class="settings-help">The absolute URL of your Cloudflare Worker (e.g. <code>https://parse.yourdomain.com</code>). Leave blank if served from the same domain.</p>
+				<input type="url" id="server-input" bind:value={settingsServerUrl} placeholder="https://..." autocomplete="off" spellcheck="false">
+			</div>
+
 			<div class="settings-group">
 				<label for="token-input">API Token</label>
 				<p class="settings-help">Enter your <code>PARSE_TOKEN</code> secret to access your library. This is stored only in your browser.</p>

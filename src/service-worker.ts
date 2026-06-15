@@ -53,10 +53,9 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
 	if (request.method !== 'GET') return; // writes go straight to the network
 
 	const url = new URL(request.url);
-	if (url.origin !== sw.location.origin) return;
 
 	// SPA navigations: serve the cached shell when the network is unavailable.
-	if (request.mode === 'navigate') {
+	if (request.mode === 'navigate' && url.origin === sw.location.origin) {
 		event.respondWith(
 			fetch(request).catch(() => caches.match('/index.html') as Promise<Response>)
 		);
@@ -68,6 +67,9 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
 		event.respondWith(networkFirst(request));
 		return;
 	}
+
+	// For other assets, require same-origin
+	if (url.origin !== sw.location.origin) return;
 
 	// App shell assets: cache-first.
 	if (SHELL_ASSETS.includes(url.pathname)) {

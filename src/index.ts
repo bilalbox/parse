@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
+import { cors } from 'hono/cors';
 import PostalMime from 'postal-mime';
 import { extractArticle } from './extract';
 import { createWebSource } from './sources/web';
@@ -26,6 +27,11 @@ const requireAuth = createMiddleware<{ Bindings: AppEnv }>(async (c, next) => {
 	return c.json({ error: 'Unauthorized' }, 401);
 });
 
+app.use('/api/*', cors({
+	origin: ['http://localhost', 'capacitor://localhost'],
+	allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+	allowHeaders: ['Authorization', 'Content-Type']
+}));
 app.use('/api/*', requireAuth);
 
 // Root route handled by Cloudflare Static Assets (public/index.html)
