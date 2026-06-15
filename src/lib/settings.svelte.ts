@@ -85,17 +85,13 @@ class SettingsStore {
 		if (this.token) {
 			headers.set('Authorization', `Bearer ${this.token}`);
 		}
-		
-		// If a server URL is configured and the URL is relative, prepend it
+
 		let fullUrl = url;
 		if (this.serverUrl && url.startsWith('/')) {
 			fullUrl = `${this.serverUrl}${url}`;
 		}
 
-		// Also support token as query param if needed (standard in Hono fallback)
-		const delimiter = fullUrl.includes('?') ? '&' : '?';
-		const finalUrl = this.token ? `${fullUrl}${delimiter}token=${this.token}` : fullUrl;
-		return fetch(finalUrl, { ...options, headers });
+		return fetch(fullUrl, { ...options, headers });
 	}
 }
 

@@ -24,54 +24,56 @@ export interface CacheAdapter {
 	warm(articles: ArticleListItem[]): Promise<void>;
 }
 
-class DefaultNetworkAdapter implements NetworkAdapter {
-	async fetchList(filter: FilterState): Promise<ArticleListItem[]> {
-		const qs = filter === 'archived' ? '?archived=1' : '';
-		const res = await settings.authFetch(`/api/articles${qs}`);
-		if (!res.ok) {
-			if (res.status === 401) throw new Error('Unauthorized');
-			throw new Error('Failed to fetch library');
-		}
-		const contentType = res.headers.get('content-type');
-		if (contentType && contentType.includes('text/html')) {
-			throw new Error('Server configuration error: received HTML instead of JSON. Please check your Server URL and token.');
-		}
-		return (await res.json()) as ArticleListItem[];
-	}
+function defaultNetworkAdapter(): NetworkAdapter {
+	return {
+		async fetchList(filter) {
+			const qs = filter === 'archived' ? '?archived=1' : '';
+			const res = await settings.authFetch(`/api/articles${qs}`);
+			if (!res.ok) {
+				if (res.status === 401) throw new Error('Unauthorized');
+				throw new Error('Failed to fetch library');
+			}
+			const contentType = res.headers.get('content-type');
+			if (contentType && contentType.includes('text/html')) {
+				throw new Error('Server configuration error: received HTML instead of JSON. Please check your Server URL and token.');
+			}
+			return (await res.json()) as ArticleListItem[];
+		},
 
-	async search(query: string): Promise<ArticleListItem[]> {
-		const res = await settings.authFetch(`/api/search?q=${encodeURIComponent(query)}`);
-		if (!res.ok) throw new Error('Search failed');
-		const contentType = res.headers.get('content-type');
-		if (contentType && contentType.includes('text/html')) {
-			throw new Error('Search failed: Server configuration error');
-		}
-		return (await res.json()) as ArticleListItem[];
-	}
+		async search(query) {
+			const res = await settings.authFetch(`/api/search?q=${encodeURIComponent(query)}`);
+			if (!res.ok) throw new Error('Search failed');
+			const contentType = res.headers.get('content-type');
+			if (contentType && contentType.includes('text/html')) {
+				throw new Error('Search failed: Server configuration error');
+			}
+			return (await res.json()) as ArticleListItem[];
+		},
 
-	async archive(id: string, archived: boolean): Promise<void> {
-		const res = await settings.authFetch(`/api/articles/${id}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ archived }),
-		});
-		if (!res.ok) {
-			const data = await res.json().catch(() => ({}));
-			throw new Error(data.error || 'Failed to update article');
-		}
-	}
+		async archive(id, archived) {
+			const res = await settings.authFetch(`/api/articles/${id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ archived }),
+			});
+			if (!res.ok) {
+				const data = await res.json().catch(() => ({}));
+				throw new Error(data.error || 'Failed to update article');
+			}
+		},
 
-	async delete(id: string): Promise<void> {
-		const res = await settings.authFetch(`/api/articles/${id}`, { method: 'DELETE' });
-		if (!res.ok) {
-			const data = await res.json().catch(() => ({}));
-			throw new Error(data.error || 'Failed to delete article');
-		}
-	}
+		async delete(id) {
+			const res = await settings.authFetch(`/api/articles/${id}`, { method: 'DELETE' });
+			if (!res.ok) {
+				const data = await res.json().catch(() => ({}));
+				throw new Error(data.error || 'Failed to delete article');
+			}
+		},
+	};
 }
 
-class DefaultCacheAdapter implements CacheAdapter {
-	private getRequestUrl(url: string): string {
+function defaultCacheAdapter(): CacheAdapter {
+	function getRequestUrl(url: string): string {
 		let fullUrl = url;
 		if (settings.serverUrl && url.startsWith('/')) {
 			fullUrl = `${settings.serverUrl}${url}`;
@@ -84,51 +86,53 @@ class DefaultCacheAdapter implements CacheAdapter {
 		return settings.token ? `${fullUrl}${delimiter}token=${settings.token}` : fullUrl;
 	}
 
-	async warm(articles: ArticleListItem[]): Promise<void> {
-		if (typeof window === 'undefined' || !('caches' in window) || !navigator.onLine) return;
-		try {
-			const cache = await caches.open(RUNTIME_CACHE);
-			const keep = new Set<string>();
-			
-			const listUrl = this.getRequestUrl('/api/articles');
-			keep.add(listUrl);
-			
-			for (const article of articles) {
-				const contentUrl = `/api/articles/${article.id}`;
-				const finalContentUrl = this.getRequestUrl(contentUrl);
-				keep.add(finalContentUrl);
-				try {
-					let res = await cache.match(finalContentUrl);
-					if (!res) {
-						res = await settings.authFetch(contentUrl);
-						if (!res.ok) continue;
-					}
-					const data = await res.clone().json();
-					const payload = JSON.parse(data.content);
-					const urls = mediaUrls(payload.content);
-					for (const m of urls) {
-						const finalMediaUrl = this.getRequestUrl(m);
-						keep.add(finalMediaUrl);
-						const cachedMedia = await cache.match(finalMediaUrl);
-						if (!cachedMedia) {
-							try { await fetch(finalMediaUrl); } catch {}
+	return {
+		async warm(articles: ArticleListItem[]): Promise<void> {
+			if (typeof window === 'undefined' || !('caches' in window) || !navigator.onLine) return;
+			try {
+				const cache = await caches.open(RUNTIME_CACHE);
+				const keep = new Set<string>();
+
+				const listUrl = getRequestUrl('/api/articles');
+				keep.add(listUrl);
+
+				for (const article of articles) {
+					const contentUrl = `/api/articles/${article.id}`;
+					const finalContentUrl = getRequestUrl(contentUrl);
+					keep.add(finalContentUrl);
+					try {
+						let res = await cache.match(finalContentUrl);
+						if (!res) {
+							res = await settings.authFetch(contentUrl);
+							if (!res.ok) continue;
 						}
+						const data = await res.clone().json();
+						const payload = JSON.parse(data.content);
+						const urls = mediaUrls(payload.content);
+						for (const m of urls) {
+							const finalMediaUrl = getRequestUrl(m);
+							keep.add(finalMediaUrl);
+							const cachedMedia = await cache.match(finalMediaUrl);
+							if (!cachedMedia) {
+								try { await fetch(finalMediaUrl); } catch {}
+							}
+						}
+					} catch (err) {
+						console.warn('Warming article failed:', article.id, err);
 					}
-				} catch (err) {
-					console.warn('Warming article failed:', article.id, err);
 				}
-			}
-			
-			const keys = await cache.keys();
-			for (const req of keys) {
-				if (isRuntimeCacheable(new URL(req.url).pathname) && !keep.has(req.url)) {
-					await cache.delete(req);
+
+				const keys = await cache.keys();
+				for (const req of keys) {
+					if (isRuntimeCacheable(new URL(req.url).pathname) && !keep.has(req.url)) {
+						await cache.delete(req);
+					}
 				}
+			} catch (e) {
+				console.warn('Offline cache warm failed:', e);
 			}
-		} catch (e) {
-			console.warn('Offline cache warm failed:', e);
-		}
-	}
+		},
+	};
 }
 
 export class Library {
@@ -150,8 +154,8 @@ export class Library {
 	private searchTimeout: any;
 
 	constructor(network?: NetworkAdapter, cache?: CacheAdapter) {
-		this.network = network ?? new DefaultNetworkAdapter();
-		this.cache = cache ?? new DefaultCacheAdapter();
+		this.network = network ?? defaultNetworkAdapter();
+		this.cache = cache ?? defaultCacheAdapter();
 	}
 
 	async load(): Promise<void> {

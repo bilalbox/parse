@@ -1,4 +1,5 @@
 import type { Article } from './extract';
+import { extractMediaKeys } from './media';
 
 // The Article store owns every query against the `articles` table and its FTS
 // index. Column names, the archived flag, the source_type enum, and the stored
@@ -97,25 +98,15 @@ export function createArticleStore(db: D1Database, mediaBucket?: MediaStorageAda
 				const row = await db.prepare('SELECT content FROM articles WHERE id = ?').bind(id).first<{content: string | null}>();
 				if (!row) return false;
 
-				// extractMediaKeys logic
-				if (row.content) {
-					const keys = new Set<string>();
-					const re = /\/media\/([A-Za-z0-9._-]+)/g;
-					let match: RegExpExecArray | null;
-					while ((match = re.exec(row.content)) !== null) {
-						keys.add(match[1]);
-					}
-					const keysArray = [...keys];
-					if (keysArray.length > 0) {
-						try {
-							await mediaBucket.delete(keysArray);
-						} catch (e) {
-							console.error('Failed to purge R2 media for article', id, e);
-						}
+				const keys = extractMediaKeys(row.content);
+				if (keys.length > 0) {
+					try {
+						await mediaBucket.delete(keys);
+					} catch (e) {
+						console.error('Failed to purge R2 media for article', id, e);
 					}
 				}
 			} else {
-				// Fallback if no bucket provided, just ensure it exists
 				const row = await db.prepare('SELECT 1 FROM articles WHERE id = ?').bind(id).first();
 				if (!row) return false;
 			}

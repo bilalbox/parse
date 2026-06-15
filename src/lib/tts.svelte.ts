@@ -273,9 +273,11 @@ class TTSManager {
 				const fragment = document.createDocumentFragment();
 				let nodeOffset = 0;
 
+				let charOffset = 0;
 				for (let sentenceIdx = 0; sentenceIdx < blockSentences.length; sentenceIdx++) {
-					const currentSentenceStart = blockSentences.slice(0, sentenceIdx).reduce((acc, s) => acc + s.length, 0);
+					const currentSentenceStart = charOffset;
 					const sText = blockSentences[sentenceIdx];
+					charOffset += sText.length;
 					const sStartInBlock = blockText.indexOf(sText, currentSentenceStart);
 					const sEndInBlock = sStartInBlock + sText.length;
 

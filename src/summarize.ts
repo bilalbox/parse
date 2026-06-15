@@ -27,8 +27,6 @@ Content:
 ${textContent.slice(0, MAX_INPUT_CHARS)}`;
 }
 
-// Workers AI has returned the summary under a few different keys across models;
-// accept any of them so a model swap doesn't silently break parsing.
 function readSummary(result: any): string | null {
 	return result?.response || result?.choices?.[0]?.message?.content || result?.result || null;
 }
