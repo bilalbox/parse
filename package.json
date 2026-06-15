@@ -3,16 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.7.0",
   "scripts": {
     "build": "vite build",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "pnpm run build && wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest",
     "cf-typegen": "wrangler types",
-    "sync:android": "npm run build && npx cap sync android",
-    "open:android": "npm run sync:android && npx cap open android"
+    "sync:android": "pnpm run build && cap sync android",
+    "open:android": "pnpm run sync:android && cap open android"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.15",
