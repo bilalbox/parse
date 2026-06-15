@@ -30,6 +30,9 @@
     "vitest": "~4.1.8",
     "wrangler": "^4.100.0"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "sharp", "workerd"]
+  },
   "dependencies": {
     "@capacitor-community/text-to-speech": "^8.0.1",
     "@capacitor/android": "^8.4.0",
