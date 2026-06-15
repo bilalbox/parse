@@ -32,12 +32,20 @@ class DefaultNetworkAdapter implements NetworkAdapter {
 			if (res.status === 401) throw new Error('Unauthorized');
 			throw new Error('Failed to fetch library');
 		}
+		const contentType = res.headers.get('content-type');
+		if (contentType && contentType.includes('text/html')) {
+			throw new Error('Server configuration error: received HTML instead of JSON. Please check your Server URL and token.');
+		}
 		return (await res.json()) as ArticleListItem[];
 	}
 
 	async search(query: string): Promise<ArticleListItem[]> {
 		const res = await settings.authFetch(`/api/search?q=${encodeURIComponent(query)}`);
 		if (!res.ok) throw new Error('Search failed');
+		const contentType = res.headers.get('content-type');
+		if (contentType && contentType.includes('text/html')) {
+			throw new Error('Search failed: Server configuration error');
+		}
 		return (await res.json()) as ArticleListItem[];
 	}
 

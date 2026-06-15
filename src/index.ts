@@ -28,7 +28,7 @@ const requireAuth = createMiddleware<{ Bindings: AppEnv }>(async (c, next) => {
 });
 
 app.use('/api/*', cors({
-	origin: ['http://localhost', 'capacitor://localhost'],
+	origin: '*',
 	allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 	allowHeaders: ['Authorization', 'Content-Type']
 }));
