@@ -10,7 +10,7 @@ return {
 	assets: new Set(["icon.svg","manifest.json","service-worker.js"]),
 	mimeTypes: {".svg":"image/svg+xml",".json":"application/json"},
 	_: {
-		client: {start:"_app/immutable/entry/start.CT7gha5F.js",app:"_app/immutable/entry/app.71F7ZB92.js",imports:["_app/immutable/entry/start.CT7gha5F.js","_app/immutable/chunks/BXZsiblN.js","_app/immutable/chunks/Bw13yYn_.js","_app/immutable/entry/app.71F7ZB92.js","_app/immutable/chunks/Bw13yYn_.js","_app/immutable/chunks/xihTtKlq.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.Du4ftJPQ.js",app:"_app/immutable/entry/app.g_89IqVx.js",imports:["_app/immutable/entry/start.Du4ftJPQ.js","_app/immutable/chunks/BOb7nQMJ.js","_app/immutable/chunks/Bw13yYn_.js","_app/immutable/entry/app.g_89IqVx.js","_app/immutable/chunks/Bw13yYn_.js","_app/immutable/chunks/xihTtKlq.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
 			__memo(() => import('./nodes/0.js')),
 			__memo(() => import('./nodes/1.js')),

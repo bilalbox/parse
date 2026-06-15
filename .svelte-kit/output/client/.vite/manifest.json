@@ -1,6 +1,6 @@
 {
   ".svelte-kit/generated/client-optimized/app.js": {
-    "file": "_app/immutable/entry/app.71F7ZB92.js",
+    "file": "_app/immutable/entry/app.g_89IqVx.js",
     "name": "entry/app",
     "src": ".svelte-kit/generated/client-optimized/app.js",
     "isEntry": true,
@@ -17,73 +17,73 @@
     ]
   },
   ".svelte-kit/generated/client-optimized/nodes/0.js": {
-    "file": "_app/immutable/nodes/0.BgLBLrZj.js",
+    "file": "_app/immutable/nodes/0.CIS6Dh5s.js",
     "name": "nodes/0",
     "src": ".svelte-kit/generated/client-optimized/nodes/0.js",
     "isEntry": true,
     "imports": [
       "_Bw13yYn_.js",
-      "_D2oHVqtE.js",
+      "_CR0EiNpG.js",
+      "_D8rys-P8.js",
       "_xihTtKlq.js",
       "_DYyxvVNp.js",
-      "_Do2a9u3B.js",
-      "_H6vS-fZy.js"
+      "_Do2a9u3B.js"
     ],
     "css": [
       "_app/immutable/assets/0.Q7mTpn7Y.css"
     ]
   },
   ".svelte-kit/generated/client-optimized/nodes/1.js": {
-    "file": "_app/immutable/nodes/1.BXe6xCgI.js",
+    "file": "_app/immutable/nodes/1.36Lr6zMU.js",
     "name": "nodes/1",
     "src": ".svelte-kit/generated/client-optimized/nodes/1.js",
     "isEntry": true,
     "imports": [
       "_Bw13yYn_.js",
-      "_BXZsiblN.js",
+      "_BOb7nQMJ.js",
       "_xihTtKlq.js"
     ]
   },
   ".svelte-kit/generated/client-optimized/nodes/2.js": {
-    "file": "_app/immutable/nodes/2.Dl7VH0cO.js",
+    "file": "_app/immutable/nodes/2.C6I8e1Ix.js",
     "name": "nodes/2",
     "src": ".svelte-kit/generated/client-optimized/nodes/2.js",
     "isEntry": true,
     "imports": [
       "_Bw13yYn_.js",
-      "_BXZsiblN.js",
-      "_Dp1xFzys.js",
+      "_BOb7nQMJ.js",
+      "_DOrcWocF.js",
       "_xihTtKlq.js",
       "_DYyxvVNp.js",
       "_Do2a9u3B.js"
     ]
   },
   ".svelte-kit/generated/client-optimized/nodes/3.js": {
-    "file": "_app/immutable/nodes/3.Bp8MBkDW.js",
+    "file": "_app/immutable/nodes/3.BtW9IR1S.js",
     "name": "nodes/3",
     "src": ".svelte-kit/generated/client-optimized/nodes/3.js",
     "isEntry": true,
     "imports": [
       "_Bw13yYn_.js",
-      "_BXZsiblN.js",
-      "_Dp1xFzys.js",
-      "_D2oHVqtE.js",
+      "_CR0EiNpG.js",
+      "_BOb7nQMJ.js",
+      "_DOrcWocF.js",
+      "_D8rys-P8.js",
       "_xihTtKlq.js",
       "_DYyxvVNp.js",
-      "_Do2a9u3B.js",
-      "_H6vS-fZy.js"
+      "_Do2a9u3B.js"
     ]
   },
   ".svelte-kit/generated/client-optimized/nodes/4.js": {
-    "file": "_app/immutable/nodes/4.JNtBewEh.js",
+    "file": "_app/immutable/nodes/4.HU7MBaCz.js",
     "name": "nodes/4",
     "src": ".svelte-kit/generated/client-optimized/nodes/4.js",
     "isEntry": true,
     "imports": [
       "_Bw13yYn_.js",
-      "_BXZsiblN.js",
-      "_Dp1xFzys.js",
-      "_D2oHVqtE.js",
+      "_BOb7nQMJ.js",
+      "_DOrcWocF.js",
+      "_D8rys-P8.js",
       "_xihTtKlq.js",
       "_DYyxvVNp.js"
     ],
@@ -91,8 +91,8 @@
       "_app/immutable/assets/4.BOfDkx7g.css"
     ]
   },
-  "_BXZsiblN.js": {
-    "file": "_app/immutable/chunks/BXZsiblN.js",
+  "_BOb7nQMJ.js": {
+    "file": "_app/immutable/chunks/BOb7nQMJ.js",
     "name": "client",
     "imports": [
       "_Bw13yYn_.js"
@@ -102,12 +102,29 @@
     "file": "_app/immutable/chunks/Bw13yYn_.js",
     "name": "preload-helper"
   },
-  "_D2oHVqtE.js": {
-    "file": "_app/immutable/chunks/D2oHVqtE.js",
+  "_CR0EiNpG.js": {
+    "file": "_app/immutable/chunks/CR0EiNpG.js",
+    "name": "tts.svelte",
+    "imports": [
+      "_Bw13yYn_.js"
+    ],
+    "dynamicImports": [
+      "node_modules/.pnpm/@capacitor-community+text-to-speech@8.0.1_@capacitor+core@8.4.0/node_modules/@capacitor-community/text-to-speech/dist/esm/web.js"
+    ]
+  },
+  "_D8rys-P8.js": {
+    "file": "_app/immutable/chunks/D8rys-P8.js",
     "name": "stores",
     "imports": [
       "_Bw13yYn_.js",
-      "_BXZsiblN.js"
+      "_BOb7nQMJ.js"
+    ]
+  },
+  "_DOrcWocF.js": {
+    "file": "_app/immutable/chunks/DOrcWocF.js",
+    "name": "navigation",
+    "imports": [
+      "_BOb7nQMJ.js"
     ]
   },
   "_DYyxvVNp.js": {
@@ -124,31 +141,26 @@
       "_Bw13yYn_.js"
     ]
   },
-  "_Dp1xFzys.js": {
-    "file": "_app/immutable/chunks/Dp1xFzys.js",
-    "name": "navigation",
-    "imports": [
-      "_BXZsiblN.js"
-    ]
-  },
-  "_H6vS-fZy.js": {
-    "file": "_app/immutable/chunks/H6vS-fZy.js",
-    "name": "tts.svelte",
-    "imports": [
-      "_Bw13yYn_.js"
-    ]
-  },
   "_xihTtKlq.js": {
     "file": "_app/immutable/chunks/xihTtKlq.js",
     "name": "disclose-version"
   },
+  "node_modules/.pnpm/@capacitor-community+text-to-speech@8.0.1_@capacitor+core@8.4.0/node_modules/@capacitor-community/text-to-speech/dist/esm/web.js": {
+    "file": "_app/immutable/chunks/DimBYD9b.js",
+    "name": "web",
+    "src": "node_modules/.pnpm/@capacitor-community+text-to-speech@8.0.1_@capacitor+core@8.4.0/node_modules/@capacitor-community/text-to-speech/dist/esm/web.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_CR0EiNpG.js"
+    ]
+  },
   "node_modules/.pnpm/@sveltejs+kit@2.65.0_@sveltejs+vite-plugin-svelte@7.1.2_svelte@5.56.3_vite@8.0.16_@type_7dc065a6e450014ad1dfd4d28a6f5cb3/node_modules/@sveltejs/kit/src/runtime/client/entry.js": {
-    "file": "_app/immutable/entry/start.CT7gha5F.js",
+    "file": "_app/immutable/entry/start.Du4ftJPQ.js",
     "name": "entry/start",
     "src": "node_modules/.pnpm/@sveltejs+kit@2.65.0_@sveltejs+vite-plugin-svelte@7.1.2_svelte@5.56.3_vite@8.0.16_@type_7dc065a6e450014ad1dfd4d28a6f5cb3/node_modules/@sveltejs/kit/src/runtime/client/entry.js",
     "isEntry": true,
     "imports": [
-      "_BXZsiblN.js"
+      "_BOb7nQMJ.js"
     ]
   }
 }

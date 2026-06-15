@@ -1,4 +1,6 @@
 import "./internal.js";
+import { Capacitor } from "@capacitor/core";
+import { TextToSpeech } from "@capacitor-community/text-to-speech";
 //#region src/lib/tts.svelte.ts
 var ABBREVIATIONS = new Set([
 	"mr",
@@ -44,24 +46,28 @@ var TTSManager = class {
 	visible = false;
 	currentUtterance = null;
 	allVoices = [];
+	nativeVoices = [];
 	constructor() {
-		if (typeof window !== "undefined") {
-			const storedSpeed = localStorage.getItem("tts_speed");
-			if (storedSpeed) this.selectedSpeed = parseFloat(storedSpeed);
-			if ("speechSynthesis" in window) {
-				window.speechSynthesis.onvoiceschanged = () => {
-					this.initVoices();
-				};
+		if (typeof window === "undefined") return;
+		const storedSpeed = localStorage.getItem("tts_speed");
+		if (storedSpeed) this.selectedSpeed = parseFloat(storedSpeed);
+		if (this.isNative) this.initNativeVoices();
+		else if ("speechSynthesis" in window) {
+			window.speechSynthesis.onvoiceschanged = () => {
 				this.initVoices();
-			}
+			};
+			this.initVoices();
 		}
+	}
+	get isNative() {
+		return Capacitor.isNativePlatform();
 	}
 	get contentLang() {
 		return this.isArabicContent ? "ar" : "en";
 	}
-	initVoices() {
-		if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-		const supported = window.speechSynthesis.getVoices().filter((v) => v.lang && /^(en|ar)/i.test(v.lang));
+	/** Dedupe to one voice per locale (preferring on-device over network) and select one. */
+	applyVoiceList(voices) {
+		const supported = voices.filter((v) => v.lang && /^(en|ar)/i.test(v.lang));
 		const byLocale = /* @__PURE__ */ new Map();
 		for (const v of supported) {
 			const locale = v.lang.toLowerCase();
@@ -71,6 +77,19 @@ var TTSManager = class {
 		}
 		this.allVoices = [...byLocale.values()].sort((a, b) => a.lang.localeCompare(b.lang));
 		this.resolveVoice();
+	}
+	initVoices() {
+		if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+		this.applyVoiceList(window.speechSynthesis.getVoices());
+	}
+	async initNativeVoices() {
+		try {
+			const { voices } = await TextToSpeech.getSupportedVoices();
+			this.nativeVoices = voices;
+			this.applyVoiceList(voices);
+		} catch (e) {
+			console.error("Native TTS getSupportedVoices failed:", e);
+		}
 	}
 	getUsableVoices() {
 		return this.allVoices.filter((v) => v.lang.toLowerCase().startsWith(this.contentLang));
@@ -95,6 +114,10 @@ var TTSManager = class {
 		if (this.isPlaying) this.playSentence(this.currentIndex);
 	}
 	cancelLocalSpeech() {
+		if (this.isNative) {
+			TextToSpeech.stop().catch(() => {});
+			return;
+		}
 		if (this.currentUtterance) {
 			this.currentUtterance.onend = null;
 			this.currentUtterance.onerror = null;
@@ -294,9 +317,45 @@ var TTSManager = class {
 			behavior: "smooth",
 			block: "center"
 		});
-		if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+		if (typeof window === "undefined") return;
+		if (!this.isNative && !("speechSynthesis" in window)) return;
 		this.isPlaying = true;
-		this.speakSentence(index, true, shouldCancel);
+		if (this.isNative) this.speakSentenceNative(index);
+		else this.speakSentence(index, true, shouldCancel);
+	}
+	/** Advance to the next sentence (or stop) once the current one finishes. */
+	advanceAfter(index) {
+		if (this.isPlaying && this.currentIndex === index) {
+			this.clearHighlight();
+			this.currentIndex++;
+			if (this.currentIndex < this.sentences.length) this.playSentence(this.currentIndex, false);
+			else this.stop();
+		}
+	}
+	async speakSentenceNative(index) {
+		const sentence = this.sentences[index];
+		if (!sentence) {
+			this.stop();
+			return;
+		}
+		const selected = this.nativeVoices.find((v) => v.name === this.selectedVoice);
+		const voiceIndex = selected ? this.nativeVoices.indexOf(selected) : -1;
+		const lang = selected?.lang || (this.contentLang === "ar" ? "ar" : "en-US");
+		try {
+			await TextToSpeech.stop();
+			if (!this.isPlaying || this.currentIndex !== index) return;
+			await TextToSpeech.speak({
+				text: sentence.text,
+				lang,
+				rate: this.selectedSpeed,
+				...voiceIndex >= 0 ? { voice: voiceIndex } : {}
+			});
+			this.advanceAfter(index);
+		} catch (e) {
+			if (!this.isPlaying || this.currentIndex !== index) return;
+			console.error("Native TTS error:", e);
+			this.stop();
+		}
 	}
 	speakSentence(index, withVoice, shouldCancel = true) {
 		if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -312,12 +371,7 @@ var TTSManager = class {
 		}
 		utterance.rate = this.selectedSpeed;
 		utterance.onend = () => {
-			if (this.isPlaying && this.currentIndex === index) {
-				this.clearHighlight();
-				this.currentIndex++;
-				if (this.currentIndex < this.sentences.length) this.playSentence(this.currentIndex, false);
-				else this.stop();
-			}
+			this.advanceAfter(index);
 		};
 		utterance.onerror = (e) => {
 			console.error("SpeechSynthesis error:", e.error, e);
