@@ -110,6 +110,12 @@ out
 .nuxt
 dist
 
+# SvelteKit generated cache/output and the static build dir. Both are regenerated
+# by `npm run build`; never commit them. `public/` is also the Worker assets dir
+# and Capacitor's webDir.
+.svelte-kit/
+public/
+
 # Gatsby files
 
 .cache/

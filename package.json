@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "deploy": "wrangler deploy",
+    "deploy": "npm run build && wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "sync:android": "npm run build && npx cap sync android",
+    "open:android": "npm run sync:android && npx cap open android"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.15",

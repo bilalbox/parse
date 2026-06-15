@@ -36,5 +36,5 @@ The single source of truth for how the offline Library is cached (ADR-0002): the
 _Avoid_: cache config, sw helpers
 
 **Narration**:
-Reading an Article aloud, sentence by sentence with the current sentence highlighted. Synthesized entirely in the client (Web Speech API via browser or Capacitor WebView), using a voice installed on the device for the Article's language — never a server-rendered audio stream. In native app contexts, JS execution is kept awake via a foreground service. Arabic Articles are not narrated (no client Arabic voice exists on the target devices); their play control is hidden.
+Reading an Article aloud, sentence by sentence with the current sentence highlighted. Synthesized on-device using a voice installed for the Article's language — never a server-rendered audio stream. Two backends behind one shared segmentation pipeline (`src/lib/tts.svelte.ts`): the browser **Web Speech API** in the PWA, and the device's native TTS via `@capacitor-community/text-to-speech` on Android, where the WebView has no `speechSynthesis` engine (ADR-0005). Foreground-only (no background/locked-screen narration). Arabic Articles are not narrated (no client Arabic voice exists on the target devices); their play control is hidden.
 _Avoid_: TTS, audio, playback
