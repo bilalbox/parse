@@ -13,9 +13,11 @@
     "test": "vitest",
     "cf-typegen": "wrangler types",
     "sync:android": "pnpm run build && cap sync android",
-    "open:android": "pnpm run sync:android && cap open android"
+    "open:android": "pnpm run sync:android && cap open android",
+    "generate-assets": "node generate_icons.js && capacitor-assets generate --android"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@cloudflare/vitest-pool-workers": "^0.16.15",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.65.1",
@@ -23,6 +25,7 @@
     "@types/mozilla-readability": "^0.2.1",
     "@types/node": "^25.9.3",
     "@types/service-worker-mock": "^2.0.4",
+    "sharp": "^0.35.1",
     "svelte": "^5.56.3",
     "svelte-check": "^4.6.0",
     "typescript": "^6.0.3",
