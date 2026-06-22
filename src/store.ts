@@ -66,46 +66,46 @@ export interface MediaStorageAdapter {
 	delete(keys: string | string[]): Promise<void>;
 }
 
-export function createArticleStore(db: D1Database, mediaBucket?: MediaStorageAdapter): ArticleStore {
+export function createArticleStore(db: D1Database, userId: string, mediaBucket?: MediaStorageAdapter): ArticleStore {
 	return {
 		// Default library is active items; pass archived=true for the archive.
 		async list(archived) {
 			const res = await db.prepare(
 				`SELECT id, title, author, url, unsubscribe_link, archived, created_at
-				 FROM articles WHERE archived = ? ORDER BY created_at DESC LIMIT 50`
-			).bind(archived ? 1 : 0).all<ArticleListItem>();
+				 FROM articles WHERE user_id = ? AND archived = ? ORDER BY created_at DESC LIMIT 50`
+			).bind(userId, archived ? 1 : 0).all<ArticleListItem>();
 			return res.results;
 		},
 
 		async get(id) {
-			return db.prepare('SELECT * FROM articles WHERE id = ?').bind(id).first<StoredArticle>();
+			return db.prepare('SELECT * FROM articles WHERE id = ? AND user_id = ?').bind(id, userId).first<StoredArticle>();
 		},
 
 		// Insert a finished Article from the extraction spine. One INSERT for
 		// every ingest path; created_at is set server-side.
 		async create(a) {
 			await db.prepare(
-				`INSERT INTO articles (id, title, author, url, content, source_type, unsubscribe_link, unsubscribe_one_click, created_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
-			).bind(a.id, a.title, a.author, a.url, a.content, a.sourceType, a.unsubscribeLink, a.unsubscribeOneClick ? 1 : 0).run();
+				`INSERT INTO articles (id, user_id, title, author, url, content, source_type, unsubscribe_link, unsubscribe_one_click, created_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+			).bind(a.id, userId, a.title, a.author, a.url, a.content, a.sourceType, a.unsubscribeLink, a.unsubscribeOneClick ? 1 : 0).run();
 		},
 
 		// Returns false when no such article exists (so the caller can 404).
 		async setArchived(id, archived) {
-			const res = await db.prepare('UPDATE articles SET archived = ? WHERE id = ?')
-				.bind(archived ? 1 : 0, id).run();
+			const res = await db.prepare('UPDATE articles SET archived = ? WHERE id = ? AND user_id = ?')
+				.bind(archived ? 1 : 0, id, userId).run();
 			return !!res.meta.changes;
 		},
 
 		async saveSummary(id, summary) {
-			await db.prepare('UPDATE articles SET summary = ? WHERE id = ?').bind(summary, id).run();
+			await db.prepare('UPDATE articles SET summary = ? WHERE id = ? AND user_id = ?').bind(summary, id, userId).run();
 		},
 
 		// Permanently removes an Article from the Library/Archive and purges
 		// its associated Media. Returns true if removed, false if not found.
 		async remove(id) {
 			if (mediaBucket) {
-				const row = await db.prepare('SELECT content FROM articles WHERE id = ?').bind(id).first<{content: string | null}>();
+				const row = await db.prepare('SELECT content FROM articles WHERE id = ? AND user_id = ?').bind(id, userId).first<{content: string | null}>();
 				if (!row) return false;
 
 				const keys = extractMediaKeys(row.content);
@@ -117,11 +117,11 @@ export function createArticleStore(db: D1Database, mediaBucket?: MediaStorageAda
 					}
 				}
 			} else {
-				const row = await db.prepare('SELECT 1 FROM articles WHERE id = ?').bind(id).first();
+				const row = await db.prepare('SELECT 1 FROM articles WHERE id = ? AND user_id = ?').bind(id, userId).first();
 				if (!row) return false;
 			}
 
-			await db.prepare('DELETE FROM articles WHERE id = ?').bind(id).run();
+			await db.prepare('DELETE FROM articles WHERE id = ? AND user_id = ?').bind(id, userId).run();
 			return true;
 		},
 
@@ -130,30 +130,30 @@ export function createArticleStore(db: D1Database, mediaBucket?: MediaStorageAda
 				SELECT a.id, f.title, snippet(articles_fts, -1, '<b>', '</b>', '...', 64) as match_snippet
 				FROM articles_fts f
 				JOIN articles a ON a.rowid = f.rowid
-				WHERE f.content MATCH ?
+				WHERE f.content MATCH ? AND a.user_id = ?
 				ORDER BY f.rank
 				LIMIT 10
-			`).bind(query).all<SearchHit>();
+			`).bind(query, userId).all<SearchHit>();
 			return res.results;
 		},
 
 		async recordFailure(urlOrSubject, errorMessage) {
 			await db.prepare(
-				`INSERT INTO ingest_failures (id, url_or_subject, error_message, created_at)
-				 VALUES (?, ?, ?, datetime('now'))`
-			).bind(crypto.randomUUID(), urlOrSubject, errorMessage).run();
+				`INSERT INTO ingest_failures (id, user_id, url_or_subject, error_message, created_at)
+				 VALUES (?, ?, ?, ?, datetime('now'))`
+			).bind(crypto.randomUUID(), userId, urlOrSubject, errorMessage).run();
 		},
 
 		async listFailures() {
 			const res = await db.prepare(
 				`SELECT id, url_or_subject, error_message, created_at
-				 FROM ingest_failures ORDER BY created_at DESC LIMIT 50`
-			).all<IngestFailure>();
+				 FROM ingest_failures WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`
+			).bind(userId).all<IngestFailure>();
 			return res.results;
 		},
 
 		async clearFailure(id) {
-			await db.prepare('DELETE FROM ingest_failures WHERE id = ?').bind(id).run();
+			await db.prepare('DELETE FROM ingest_failures WHERE id = ? AND user_id = ?').bind(id, userId).run();
 		},
 	};
 }

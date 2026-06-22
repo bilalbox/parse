@@ -1,9 +1,27 @@
 -- schema.sql
 
--- 1. Create the main articles table
+-- 1. Create users and sessions tables
+CREATE TABLE users (
+    id TEXT PRIMARY KEY,
+    google_id TEXT UNIQUE NOT NULL,
+    email TEXT NOT NULL,
+    email_alias TEXT UNIQUE NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+
+-- 2. Create the main articles table
 DROP TABLE IF EXISTS articles;
 CREATE TABLE articles (
     id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     author TEXT,
     url TEXT NOT NULL,
@@ -18,9 +36,11 @@ CREATE TABLE articles (
 
 -- Index the active/archived split so the default library query stays fast.
 CREATE INDEX IF NOT EXISTS idx_articles_source ON articles (source_type);
+CREATE INDEX IF NOT EXISTS idx_articles_user_id ON articles(user_id);
 
 CREATE TABLE IF NOT EXISTS ingest_failures (
     id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
     url_or_subject TEXT NOT NULL,
     error_message TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP

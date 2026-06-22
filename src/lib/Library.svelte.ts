@@ -75,9 +75,7 @@ function defaultNetworkAdapter(): NetworkAdapter {
 function defaultCacheAdapter(): CacheAdapter {
 	function getRequestUrl(url: string): string {
 		let fullUrl = url;
-		if (settings.serverUrl && url.startsWith('/')) {
-			fullUrl = `${settings.serverUrl}${url}`;
-		} else if (url.startsWith('/')) {
+		if (url.startsWith('/')) {
 			if (typeof window !== 'undefined') {
 				fullUrl = `${window.location.origin}${url}`;
 			}

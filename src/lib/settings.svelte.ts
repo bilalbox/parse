@@ -1,6 +1,4 @@
 class SettingsStore {
-	token = $state('');
-	serverUrl = $state('');
 	theme = $state('dark');
 	fontSize = $state(1.15);
 	fontFamily = $state('sans'); // 'sans' | 'serif' | 'amiri' | 'cairo'
@@ -9,8 +7,6 @@ class SettingsStore {
 
 	constructor() {
 		if (typeof window !== 'undefined') {
-			this.token = localStorage.getItem('parse_token') || '';
-			this.serverUrl = localStorage.getItem('parse_server_url') || '';
 			this.theme = localStorage.getItem('theme') || 'dark';
 			const storedFontSize = localStorage.getItem('parse_font_size');
 			if (storedFontSize) this.fontSize = parseFloat(storedFontSize);
@@ -32,27 +28,7 @@ class SettingsStore {
 		}
 	}
 
-	saveToken(token: string) {
-		this.token = token;
-		if (typeof window !== 'undefined') {
-			localStorage.setItem('parse_token', token);
-			let fullUrl = '/api/auth/login';
-			if (this.serverUrl) fullUrl = `${this.serverUrl}${fullUrl}`;
-			fetch(fullUrl, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ token }),
-				credentials: 'omit'
-			}).catch(e => console.error('Failed to set auth cookie', e));
-		}
-	}
 
-	saveServerUrl(url: string) {
-		this.serverUrl = url.replace(/\/$/, ''); // Remove trailing slash if present
-		if (typeof window !== 'undefined') {
-			localStorage.setItem('parse_server_url', this.serverUrl);
-		}
-	}
 
 	toggleTheme() {
 		const nextTheme = this.theme === 'dark' ? 'light' : 'dark';
@@ -90,16 +66,7 @@ class SettingsStore {
 	// Helper to make authorized fetch calls
 	async authFetch(url: string, options: RequestInit = {}): Promise<Response> {
 		const headers = new Headers(options.headers || {});
-		if (this.token) {
-			headers.set('Authorization', `Bearer ${this.token}`);
-		}
-
-		let fullUrl = url;
-		if (this.serverUrl && url.startsWith('/')) {
-			fullUrl = `${this.serverUrl}${url}`;
-		}
-
-		return fetch(fullUrl, { ...options, headers, credentials: 'include' });
+		return fetch(url, { ...options, headers, credentials: 'include' });
 	}
 }
 

@@ -54,6 +54,11 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
 
 	const url = new URL(request.url);
 
+	// Bypass service worker entirely for backend routes
+	if (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/api/')) {
+		return;
+	}
+
 	// SPA navigations: serve the cached shell when the network is unavailable.
 	if (request.mode === 'navigate' && url.origin === sw.location.origin) {
 		event.respondWith(

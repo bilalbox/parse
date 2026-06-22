@@ -31,7 +31,7 @@ function readSummary(result: any): string | null {
 // Generate a Summary for an Article, store it, and return it. Throws if the
 // model returns no usable text — callers decide how to surface that (the
 // endpoint 500s, the email handler logs).
-export async function summarizeArticle(env: SummarizeEnv, id: string, textContent: string): Promise<string> {
+export async function summarizeArticle(env: SummarizeEnv, id: string, textContent: string, userId: string): Promise<string> {
 	const result = (await env.AI.run(SUMMARY_MODEL, {
 		messages: [
 			{ role: 'system', content: SYSTEM_PROMPT },
@@ -44,6 +44,6 @@ export async function summarizeArticle(env: SummarizeEnv, id: string, textConten
 	const summary = readSummary(result);
 	if (!summary) throw new Error('AI response did not contain a valid summary');
 
-	await createArticleStore(env.DB).saveSummary(id, summary);
+	await createArticleStore(env.DB, userId).saveSummary(id, summary);
 	return summary;
 }

@@ -24,7 +24,8 @@
 		// Run the worker first for API routes so Hono handles them before asset lookup.
 		"run_worker_first": [
 			"/api/*",
-			"/media/*"
+			"/media/*",
+			"/auth/*"
 		]
 	},
 	"observability": {

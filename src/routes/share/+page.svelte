@@ -10,8 +10,6 @@
 	let loading = $state(true);
 	let sharedUrl = $state('');
 
-	let tokenInputVal = $state('');
-	let needsToken = $state(false);
 
 	async function clipUrl(url: string): Promise<void> {
 		loading = true;
@@ -28,8 +26,7 @@
 
 			if (!res.ok) {
 				if (res.status === 401) {
-					needsToken = true;
-					loading = false;
+					goto('/login');
 					return;
 				}
 				const data = (await res.json().catch(() => ({}))) as any;
@@ -58,13 +55,6 @@
 		}
 	}
 
-	function handleSaveToken(): void {
-		if (tokenInputVal.trim()) {
-			settings.saveToken(tokenInputVal.trim());
-			needsToken = false;
-			clipUrl(sharedUrl);
-		}
-	}
 
 	onMount(() => {
 		document.title = 'Clipping | Parse';
@@ -85,26 +75,13 @@
 			return;
 		}
 
-		if (!settings.token) {
-			needsToken = true;
-			loading = false;
-		} else {
-			clipUrl(sharedUrl);
-		}
+		clipUrl(sharedUrl);
 	});
 </script>
 
 <main id="view-clipping" class="view active">
 	<div class="clipping-container">
-		{#if needsToken}
-			<h2>Authentication Required</h2>
-			<p class="settings-help" style="margin-bottom: 1.5rem;">Enter your <code>PARSE_TOKEN</code> to save this article to your library.</p>
-			
-			<div class="settings-group" style="width: 100%; max-width: 320px; text-align: left; display: flex; flex-direction: column;">
-				<input type="password" bind:value={tokenInputVal} placeholder="Paste token here..." autocomplete="off" style="width: 100%; padding: 0.8rem; margin-bottom: 1rem; border-radius: 8px; border: 1px solid var(--border-glass); background: var(--bg-secondary); color: var(--text-primary);">
-				<button class="token-save-btn" onclick={handleSaveToken} style="width: 100%; padding: 0.8rem; border-radius: 8px;">Save and Parse</button>
-			</div>
-		{:else}
+
 			{#if loading}
 				<div id="clipping-spinner" class="spinner large"></div>
 			{/if}
@@ -127,7 +104,6 @@
 					<button id="btn-clip-library" class="btn" onclick={() => goto('/')}>Go to Library</button>
 				</div>
 			{/if}
-		{/if}
 	</div>
 </main>
 

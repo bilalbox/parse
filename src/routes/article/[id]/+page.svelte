@@ -19,7 +19,13 @@
 		articleData = null;
 		try {
 			const res = await settings.authFetch(`/api/articles/${articleId}`);
-			if (!res.ok) throw new Error('Article not found');
+			if (!res.ok) {
+				if (res.status === 401) {
+					goto('/login');
+					return;
+				}
+				throw new Error('Article not found');
+			}
 			articleData = (await res.json()) as any;
 			
 			// Update page title
@@ -212,8 +218,7 @@
 
 	function rewriteHtmlContent(html: string): string {
 		if (!html) return '';
-		if (!settings.serverUrl) return html;
-		return html.replace(/(src|srcset)=(['"])\/media\//g, `$1=$2${settings.serverUrl}/media/`);
+		return html;
 	}
 
 	// Reactively bind article content to global TTS engine once loaded and mounted via Svelte 5 attachment

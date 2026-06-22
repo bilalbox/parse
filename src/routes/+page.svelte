@@ -16,8 +16,7 @@
 	let parsing = $state(false);
 	let parseError = $state('');
 	
-	let settingsToken = $state('');
-	let settingsServerUrl = $state('');
+
 	let appUpdateStatus = $state('');
 	let checkingUpdates = $state(false);
 
@@ -116,18 +115,21 @@
 	}
 
 	function saveSettings(): void {
-		settings.saveToken(settingsToken);
-		settings.saveServerUrl(settingsServerUrl);
 		showSettingsModal = false;
-		library.load().catch((err) => {
-			if (err.message === 'Unauthorized') showSettingsModal = true;
-		});
+		library.load();
 	}
 
 	function cancelSettings(): void {
-		settingsToken = settings.token;
-		settingsServerUrl = settings.serverUrl;
 		showSettingsModal = false;
+	}
+
+	async function handleLogout(): Promise<void> {
+		try {
+			await settings.authFetch('/api/auth/logout', { method: 'POST' });
+			goto('/login');
+		} catch (err) {
+			toast.show('Logout failed', 'error');
+		}
 	}
 
 	async function checkUpdates(): Promise<void> {
@@ -183,12 +185,14 @@
 	}
 
 	onMount(() => {
-		settingsToken = settings.token;
-		settingsServerUrl = settings.serverUrl;
 		document.title = 'Parse | Edge Reading';
-		library.load().catch((err) => {
-			if (err.message === 'Unauthorized') showSettingsModal = true;
-		});
+		library.load();
+	});
+
+	$effect(() => {
+		if (library.error?.message === 'Unauthorized') {
+			goto('/login');
+		}
 	});
 </script>
 
@@ -317,16 +321,16 @@
 				<button id="settings-close-btn" class="modal-close-btn" onclick={cancelSettings} title="Close Settings">×</button>
 			</div>
 			
-			<div class="settings-group">
-				<label for="server-input">Server URL</label>
-				<p class="settings-help">The absolute URL of your Cloudflare Worker (e.g. <code>https://parse.yourdomain.com</code>). Leave blank if served from the same domain.</p>
-				<input type="url" id="server-input" bind:value={settingsServerUrl} placeholder="https://..." autocomplete="off" spellcheck="false">
-			</div>
 
-			<div class="settings-group">
-				<label for="token-input">API Token</label>
-				<p class="settings-help">Enter your <code>PARSE_TOKEN</code> secret to access your library. This is stored only in your browser.</p>
-				<input type="password" id="token-input" bind:value={settingsToken} placeholder="Paste token here..." autocomplete="off" spellcheck="false">
+			<div class="settings-group" style="margin-top: 1rem;">
+				<button 
+					id="logout-btn" 
+					class="token-cancel-btn" 
+					style="width: 100%; border-color: var(--error); color: var(--error);" 
+					onclick={handleLogout}
+				>
+					Logout
+				</button>
 			</div>
 
 			<div class="settings-group">
