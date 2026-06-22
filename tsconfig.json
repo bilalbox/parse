@@ -18,12 +18,14 @@
 		"strict": true,
 		"skipLibCheck": true,
 		"types": [
-			"./worker-configuration.d.ts",
 			"node"
 		]
 	},
 	"exclude": ["test"],
 	"include": [
+		".svelte-kit/ambient.d.ts",
+		".svelte-kit/non-ambient.d.ts",
+		".svelte-kit/types/**/$types.d.ts",
 		"worker-configuration.d.ts",
 		"src/**/*.ts",
 		"src/**/*.svelte"
