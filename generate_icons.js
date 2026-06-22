@@ -10,6 +10,27 @@ async function generate() {
     .resize(1024, 1024)
     .png()
     .toFile('assets/icon.png');
+
+  await sharp('static/icon.svg')
+    .resize(1024, 1024)
+    .png()
+    .toFile('assets/icon-only.png');
+
+  await sharp('static/icon.svg')
+    .resize(1024, 1024)
+    .png()
+    .toFile('assets/icon-foreground.png');
+
+  await sharp({
+    create: {
+      width: 1024,
+      height: 1024,
+      channels: 4,
+      background: { r: 10, g: 10, b: 12, alpha: 1 }
+    }
+  })
+    .png()
+    .toFile('assets/icon-background.png');
     
   // Generate a basic splash screen
   await sharp({
