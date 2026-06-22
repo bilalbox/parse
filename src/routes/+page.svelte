@@ -187,6 +187,7 @@
 	onMount(() => {
 		document.title = 'Parse | Edge Reading';
 		library.load();
+		settings.loadUser();
 	});
 
 	$effect(() => {
@@ -321,6 +322,25 @@
 				<button id="settings-close-btn" class="modal-close-btn" onclick={cancelSettings} title="Close Settings">×</button>
 			</div>
 			
+			{#if settings.user}
+			<div class="settings-group" style="margin-top: 1rem;">
+				<label>Forwarding Address</label>
+				<p class="settings-help" style="word-break: break-all;">{settings.user.email_alias}</p>
+				<p class="settings-help" style="margin-top: 0.25rem; font-size: 0.8rem;">Emails sent to this address will be saved to your library.</p>
+			</div>
+
+			<div class="settings-group">
+				<label style="display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; cursor: pointer;">
+					Auto AI Summaries
+					<input type="checkbox" 
+						checked={settings.user.auto_summarize_emails !== 0} 
+						onchange={(e) => settings.updateUserSettings(e.currentTarget.checked)}
+						style="width: 1.25rem; height: 1.25rem; accent-color: var(--accent); cursor: pointer;"
+					/>
+				</label>
+				<p class="settings-help" style="margin-top: 0.25rem;">Automatically generate summaries for incoming newsletter emails.</p>
+			</div>
+			{/if}
 
 			<div class="settings-group" style="margin-top: 1rem;">
 				<button 

@@ -4,6 +4,7 @@ class SettingsStore {
 	fontFamily = $state('sans'); // 'sans' | 'serif' | 'amiri' | 'cairo'
 	isOnline = $state(true);
 	deferredInstallPrompt = $state<any>(null);
+	user = $state<any>(null);
 
 	constructor() {
 		if (typeof window !== 'undefined') {
@@ -60,6 +61,39 @@ class SettingsStore {
 			if (outcome === 'accepted') {
 				this.deferredInstallPrompt = null;
 			}
+		}
+	}
+
+	async loadUser() {
+		if (!this.isOnline) return;
+		try {
+			const res = await this.authFetch('/api/me');
+			if (res.ok) {
+				this.user = await res.json();
+			}
+		} catch (err) {
+			console.error('Failed to load user', err);
+		}
+	}
+
+	async updateUserSettings(auto_summarize_emails: boolean) {
+		if (!this.isOnline) return;
+		try {
+			const res = await this.authFetch('/api/settings', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ auto_summarize_emails })
+			});
+			if (res.ok) {
+				if (this.user) {
+					this.user.auto_summarize_emails = auto_summarize_emails ? 1 : 0;
+				}
+			} else {
+				throw new Error('Failed to update settings');
+			}
+		} catch (err) {
+			console.error('Failed to update settings', err);
+			throw err;
 		}
 	}
 

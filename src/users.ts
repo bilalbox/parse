@@ -5,6 +5,7 @@ export interface User {
 	google_id: string;
 	email: string;
 	email_alias: string;
+	auto_summarize_emails?: number;
 }
 
 export interface Session {
@@ -28,13 +29,13 @@ export async function getUserByEmailAlias(db: D1Database, alias: string): Promis
 
 export async function createUser(db: D1Database, googleId: string, email: string): Promise<User> {
 	const id = generateIdFromEntropySize(16);
-	const email_alias = 'save-' + generateIdFromEntropySize(10) + '@parse.23p.dev';
+	const email_alias = 'newsletters+' + generateIdFromEntropySize(10) + '@23p.dev';
 	
 	await db.prepare(
-		`INSERT INTO users (id, google_id, email, email_alias, created_at) VALUES (?, ?, ?, ?, datetime('now'))`
+		`INSERT INTO users (id, google_id, email, email_alias, auto_summarize_emails, created_at) VALUES (?, ?, ?, ?, 1, datetime('now'))`
 	).bind(id, googleId, email, email_alias).run();
 
-	return { id, google_id: googleId, email, email_alias };
+	return { id, google_id: googleId, email, email_alias, auto_summarize_emails: 1 };
 }
 
 export async function createSession(db: D1Database, userId: string): Promise<Session> {
@@ -52,7 +53,7 @@ export async function createSession(db: D1Database, userId: string): Promise<Ses
 export async function validateSessionToken(db: D1Database, sessionId: string): Promise<{ user: User; session: Session } | null> {
 	const result = await db.prepare(`
 		SELECT sessions.id as session_id, sessions.user_id, sessions.expires_at,
-		       users.id as user_id, users.google_id, users.email, users.email_alias
+		       users.id as user_id, users.google_id, users.email, users.email_alias, users.auto_summarize_emails
 		FROM sessions
 		INNER JOIN users ON users.id = sessions.user_id
 		WHERE sessions.id = ?
@@ -69,7 +70,8 @@ export async function validateSessionToken(db: D1Database, sessionId: string): P
 		id: result.user_id,
 		google_id: result.google_id,
 		email: result.email,
-		email_alias: result.email_alias
+		email_alias: result.email_alias,
+		auto_summarize_emails: result.auto_summarize_emails ?? 1
 	};
 
 	if (Date.now() / 1000 >= session.expires_at) {

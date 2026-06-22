@@ -143,6 +143,14 @@ app.get('/api/me', (c) => {
 	return c.json(c.get('user'));
 });
 
+app.post('/api/settings', async (c) => {
+	const user = c.get('user');
+	const body = await c.req.json();
+	const autoSummarize = body.auto_summarize_emails ? 1 : 0;
+	await c.env.DB.prepare('UPDATE users SET auto_summarize_emails = ? WHERE id = ?').bind(autoSummarize, user.id).run();
+	return c.json({ success: true });
+});
+
 // Root route handled by Cloudflare Static Assets (public/index.html)
 
 app.post('/api/queue', async (c) => {
@@ -285,7 +293,7 @@ export default {
 		const email = await parser.parse(message.raw);
 		
 		const toAddresses = email.to ? email.to.map((addr: any) => addr.address) : [];
-		const alias = toAddresses.find((a: string) => a.endsWith('@parse.23p.dev')) || message.to;
+		const alias = toAddresses.find((a: string) => a.startsWith('newsletters+') && a.endsWith('@23p.dev')) || message.to;
 		
 		const user = await getUserByEmailAlias(env.DB, alias);
 		if (!user) {
@@ -301,7 +309,7 @@ export default {
 			await createArticleStore(env.DB, user.id).create(article);
 
 			const textContent = articlePlainText(article.content);
-			if (textContent) {
+			if (textContent && user.auto_summarize_emails !== 0) {
 				ctx.waitUntil(
 					summarizeArticle(env, article.id, textContent, user.id)
 						.catch((e: any) => console.error('Background summary generation failed:', e))
