@@ -76,3 +76,11 @@ CREATE TRIGGER articles_au AFTER UPDATE ON articles BEGIN
   INSERT INTO articles_fts(rowid, title, author, content) 
   VALUES (new.rowid, new.title, new.author, new.content);
 END;
+
+-- 4. Invites
+CREATE TABLE IF NOT EXISTS invites (
+    email TEXT PRIMARY KEY,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    used_at DATETIME,
+    used_by TEXT REFERENCES users(id)
+);

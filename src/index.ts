@@ -55,6 +55,26 @@ app.use('/media/*', cors({
 
 // OAuth Routes
 app.get('/auth/google', async (c) => {
+	const turnstileResponse = c.req.query('cf-turnstile-response');
+	if (!turnstileResponse) {
+		return c.redirect('/login?error=turnstile_failed');
+	}
+
+	const formData = new FormData();
+	formData.append('secret', c.env.TURNSTILE_SECRET_KEY || '1x0000000000000000000000000000000AA');
+	formData.append('response', turnstileResponse);
+	formData.append('remoteip', c.req.header('CF-Connecting-IP') || '');
+
+	const turnstileResult = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+		body: formData,
+		method: 'POST',
+	});
+
+	const turnstileOutcome = await turnstileResult.json() as any;
+	if (!turnstileOutcome.success) {
+		return c.redirect('/login?error=turnstile_failed');
+	}
+
 	const state = generateState();
 	const codeVerifier = generateCodeVerifier();
 	const redirectURI = new URL('/auth/google/callback', c.req.url).toString();
@@ -89,7 +109,16 @@ app.get('/auth/google/callback', async (c) => {
 		
 		let user = await c.env.DB.prepare('SELECT * FROM users WHERE google_id = ?').bind(googleUser.sub).first<User>();
 		if (!user) {
+			const invite = await c.env.DB.prepare('SELECT * FROM invites WHERE email = ? AND used_at IS NULL').bind(googleUser.email).first();
+			
+			if (!invite) {
+				return c.redirect('/login?error=invite_required'); 
+			}
+
 			user = await createUser(c.env.DB, googleUser.sub, googleUser.email);
+			
+			await c.env.DB.prepare('UPDATE invites SET used_at = CURRENT_TIMESTAMP, used_by = ? WHERE email = ?')
+				.bind(user.id, googleUser.email).run();
 		}
 		
 		const session = await createSession(c.env.DB, user.id);
