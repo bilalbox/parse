@@ -5,6 +5,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { tts } from '$lib/tts.svelte';
 	import { toast } from '$lib/toast.svelte';
+	import DOMPurify from 'dompurify';
 
 	// Svelte 5 States
 	let articleData = $state<any>(null);
@@ -291,16 +292,19 @@
 				}
 			}} onkeydown={() => {}} role="button" tabindex="0">
 				{#if articleData.summary}
-					<details class="summary-details details-collapsible" open>
-						<summary><strong>AI Summary</strong></summary>
-						<div class="summary-content">
-							{@html rewriteHtmlContent(renderSummary(articleData.summary))}
+					<div class="ai-summary-callout">
+						<div class="ai-summary-header">
+							<span class="ai-icon">✨</span>
+							<strong>AI Summary</strong>
 						</div>
-					</details>
+						<div class="summary-content">
+							{@html DOMPurify.sanitize(rewriteHtmlContent(renderSummary(articleData.summary)))}
+						</div>
+					</div>
 				{/if}
 				
 				<div class="article-body">
-					{@html rewriteHtmlContent(payload.content)}
+					{@html DOMPurify.sanitize(rewriteHtmlContent(payload.content))}
 				</div>
 			</div>
 		{/if}

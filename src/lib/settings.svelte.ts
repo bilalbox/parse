@@ -36,6 +36,14 @@ class SettingsStore {
 		this.token = token;
 		if (typeof window !== 'undefined') {
 			localStorage.setItem('parse_token', token);
+			let fullUrl = '/api/auth/login';
+			if (this.serverUrl) fullUrl = `${this.serverUrl}${fullUrl}`;
+			fetch(fullUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ token }),
+				credentials: 'omit'
+			}).catch(e => console.error('Failed to set auth cookie', e));
 		}
 	}
 
@@ -91,7 +99,7 @@ class SettingsStore {
 			fullUrl = `${this.serverUrl}${url}`;
 		}
 
-		return fetch(fullUrl, { ...options, headers });
+		return fetch(fullUrl, { ...options, headers, credentials: 'include' });
 	}
 }
 

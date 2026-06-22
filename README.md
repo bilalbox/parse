@@ -13,12 +13,12 @@ live in [`docs/adr/`](docs/adr/).
 ## Prerequisites
 
 - **Node.js 22** (matches CI).
-- **npm** is the canonical package manager. CI builds with `npm ci`, so `package-lock.json`
-  is the source of truth — use `npm install`, not pnpm/yarn.
+- **pnpm 11** is the canonical package manager. CI builds with `pnpm install`, so `pnpm-lock.yaml`
+  is the source of truth — use `pnpm install`, not npm/yarn.
 - For Android: Android Studio (or a JDK 21 + Android SDK), used only for the native build.
 
 ```bash
-npm install
+pnpm install
 ```
 
 ## The shared build
@@ -26,7 +26,7 @@ npm install
 One command builds the frontend for every target:
 
 ```bash
-npm run build      # vite build → SvelteKit adapter-static writes to ./public
+pnpm run build      # vite build → SvelteKit adapter-static writes to ./public
 ```
 
 `./public/` is **generated output and is not committed** (it is in `.gitignore`). It is, at
@@ -38,10 +38,10 @@ Other scripts:
 
 | Command | Purpose |
 |---------|---------|
-| `npm run dev` | Local Worker + frontend (`wrangler dev`) |
-| `npm run check` | `svelte-check` type/diagnostics pass |
-| `npm test` | Vitest (Cloudflare Workers pool) |
-| `npm run cf-typegen` | Regenerate `worker-configuration.d.ts` after editing bindings in `wrangler.jsonc` |
+| `pnpm run dev` | Local Worker + frontend (`wrangler dev`) |
+| `pnpm run check` | `svelte-check` type/diagnostics pass |
+| `pnpm test` | Vitest (Cloudflare Workers pool) |
+| `pnpm run cf-typegen` | Regenerate `worker-configuration.d.ts` after editing bindings in `wrangler.jsonc` |
 
 ## Deploy target 1 — PWA + API (Cloudflare Worker)
 
@@ -49,11 +49,11 @@ The Worker serves both the API (`/api/*`, `/media/*`, run worker-first) and the 
 the custom domain `parse.23p.dev`.
 
 ```bash
-npm run deploy     # = npm run build && wrangler deploy
+pnpm run deploy     # = pnpm run build && wrangler deploy
 ```
 
 Deployment is **manual** from a developer machine — there is no Cloudflare Git/Workers Builds
-integration. Always use `npm run deploy` (never bare `wrangler deploy`) so `public/` is rebuilt
+integration. Always use `pnpm run deploy` (never bare `wrangler deploy`) so `public/` is rebuilt
 first.
 
 Backend resources are bound in `wrangler.jsonc`: D1 (`DB`), R2 (`MEDIA_BUCKET`), Browser
@@ -78,8 +78,8 @@ the Android WebView ships no speech engine and instead bridges to the device's n
 ### Local Android build
 
 ```bash
-npm run sync:android   # build web + copy into android/ (npx cap sync android)
-npm run open:android   # the above, then open Android Studio to run/debug
+pnpm run sync:android   # build web + copy into android/ (npx cap sync android)
+pnpm run open:android   # the above, then open Android Studio to run/debug
 ```
 
 `cap sync` regenerates the generated gradle files (e.g. `android/capacitor.settings.gradle`),
@@ -88,7 +88,7 @@ so any package-manager-specific paths in them are overwritten on each sync — d
 ### Release build (CI)
 
 Pushing a `v*` tag triggers `.github/workflows/android-release.yml`, which runs
-`npm ci → npm run build → npx cap sync android`, builds a signed APK + AAB with gradle, drafts
+`pnpm install → pnpm run build → npx cap sync android`, builds a signed APK + AAB with gradle, drafts
 a GitHub Release, and uploads the AAB to the Play **internal** track.
 
 ```bash

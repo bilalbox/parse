@@ -1,5 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { BackgroundTask } from '@capawesome/capacitor-background-task';
+import { App } from '@capacitor/app';
 
 export interface Sentence {
 	text: string;
@@ -58,6 +60,7 @@ class TTSManager {
 	// Raw voice list from the native plugin, kept in plugin order so we can map a
 	// selected voice name back to the index `TextToSpeech.speak({ voice })` expects.
 	private nativeVoices: { name: string; lang: string }[] = [];
+	private backgroundTaskId: string | null = null;
 
 	constructor() {
 		if (typeof window === 'undefined') return;
@@ -344,6 +347,7 @@ class TTSManager {
 		if (this.sentences.length === 0) return;
 		this.isPlaying = true;
 		this.visible = true;
+		this.acquireBackgroundTask();
 		this.updateMediaSession();
 		this.playSentence(this.currentIndex);
 	}
@@ -351,6 +355,7 @@ class TTSManager {
 	pause() {
 		this.isPlaying = false;
 		this.cancelLocalSpeech();
+		this.releaseBackgroundTask();
 		this.updateMediaSession();
 	}
 
@@ -359,7 +364,25 @@ class TTSManager {
 		this.cancelLocalSpeech();
 		this.clearHighlight();
 		this.currentIndex = 0;
+		this.releaseBackgroundTask();
 		this.updateMediaSession();
+	}
+
+	private async acquireBackgroundTask() {
+		if (!this.isNative) return;
+		if (this.backgroundTaskId) return;
+
+		this.backgroundTaskId = await BackgroundTask.beforeExit(async () => {
+			// Note: OS may kill this if it runs too long without a foreground service
+		});
+	}
+
+	private async releaseBackgroundTask() {
+		if (!this.isNative) return;
+		if (this.backgroundTaskId) {
+			await BackgroundTask.finish({ taskId: this.backgroundTaskId });
+			this.backgroundTaskId = null;
+		}
 	}
 
 	updateMediaSession() {

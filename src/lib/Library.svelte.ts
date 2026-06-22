@@ -57,7 +57,7 @@ function defaultNetworkAdapter(): NetworkAdapter {
 				body: JSON.stringify({ archived }),
 			});
 			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
+				const data = (await res.json().catch(() => ({}))) as any;
 				throw new Error(data.error || 'Failed to update article');
 			}
 		},
@@ -65,7 +65,7 @@ function defaultNetworkAdapter(): NetworkAdapter {
 		async delete(id) {
 			const res = await settings.authFetch(`/api/articles/${id}`, { method: 'DELETE' });
 			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
+				const data = (await res.json().catch(() => ({}))) as any;
 				throw new Error(data.error || 'Failed to delete article');
 			}
 		},
@@ -82,8 +82,7 @@ function defaultCacheAdapter(): CacheAdapter {
 				fullUrl = `${window.location.origin}${url}`;
 			}
 		}
-		const delimiter = fullUrl.includes('?') ? '&' : '?';
-		return settings.token ? `${fullUrl}${delimiter}token=${settings.token}` : fullUrl;
+		return fullUrl;
 	}
 
 	return {
@@ -106,7 +105,7 @@ function defaultCacheAdapter(): CacheAdapter {
 							res = await settings.authFetch(contentUrl);
 							if (!res.ok) continue;
 						}
-						const data = await res.clone().json();
+						const data = (await res.clone().json()) as any;
 						const payload = JSON.parse(data.content);
 						const urls = mediaUrls(payload.content);
 						for (const m of urls) {

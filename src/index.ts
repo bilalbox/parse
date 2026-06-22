@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { cors } from 'hono/cors';
+import { getCookie, setCookie } from 'hono/cookie';
 import PostalMime from 'postal-mime';
 import { extractArticle } from './extract';
 import { createWebSource } from './sources/web';
@@ -15,28 +16,42 @@ const app = new Hono<{ Bindings: AppEnv }>();
 
 // Protect all API routes with a Bearer token when PARSE_TOKEN is configured.
 // Skip auth in dev/local if the secret is not set.
-// Supports query string '?token=...' for native browser elements (like audio tags).
 const requireAuth = createMiddleware<{ Bindings: AppEnv }>(async (c, next) => {
 	const token = c.env.PARSE_TOKEN;
 	if (!token) return next();
 	const auth = c.req.header('Authorization');
-	const queryToken = c.req.query('token');
-	if (auth === `Bearer ${token}` || queryToken === token) {
+	const cookieToken = getCookie(c, 'PARSE_TOKEN');
+	if (auth === `Bearer ${token}` || cookieToken === token) {
 		return next();
 	}
 	return c.json({ error: 'Unauthorized' }, 401);
 });
 
 app.use('/api/*', cors({
-	origin: '*',
+	origin: (origin) => origin,
+	credentials: true,
 	allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 	allowHeaders: ['Authorization', 'Content-Type']
 }));
 app.use('/media/*', cors({
-	origin: '*',
+	origin: (origin) => origin,
+	credentials: true,
 	allowMethods: ['GET', 'OPTIONS'],
 	allowHeaders: ['Authorization', 'Content-Type']
 }));
+
+app.post('/api/auth/login', async (c) => {
+	const body = await c.req.json().catch(() => ({}));
+	const token = body.token;
+	if (!token) return c.json({ error: 'Token is required' }, 400);
+
+	if (c.env.PARSE_TOKEN && token === c.env.PARSE_TOKEN) {
+		setCookie(c, 'PARSE_TOKEN', token, { path: '/', secure: true, httpOnly: true, sameSite: 'Lax' });
+		return c.json({ success: true });
+	}
+	return c.json({ error: 'Invalid token' }, 401);
+});
+
 app.use('/api/*', requireAuth);
 
 // Root route handled by Cloudflare Static Assets (public/index.html)
@@ -164,6 +179,18 @@ app.get('/api/search', async (c) => {
 	return c.json(await store.search(query));
 });
 
+// Failures
+app.get('/api/failures', async (c) => {
+	const store = createArticleStore(c.env.DB);
+	return c.json(await store.listFailures());
+});
+
+app.delete('/api/failures/:id', async (c) => {
+	const store = createArticleStore(c.env.DB);
+	await store.clearFailure(c.req.param('id'));
+	return c.json({ success: true });
+});
+
 export default {
 	fetch: app.fetch,
 	async queue(batch: MessageBatch<{ url: string }>, env: AppEnv): Promise<void> {
@@ -173,8 +200,9 @@ export default {
 				const article = await extractArticle(source, env.MEDIA_BUCKET);
 				await createArticleStore(env.DB).create(article);
 				msg.ack();
-			} catch (err) {
+			} catch (err: any) {
 				console.error('Queue parse failed:', msg.body.url, err);
+				await createArticleStore(env.DB).recordFailure(msg.body.url, err.message || String(err)).catch(() => {});
 				msg.retry();
 			}
 		}
@@ -197,8 +225,9 @@ export default {
 						.catch(e => console.error('Background summary generation failed:', e))
 				);
 			}
-		} catch (err) {
+		} catch (err: any) {
 			console.error('Email parse failed:', messageId, err);
+			await createArticleStore(env.DB).recordFailure(email.subject || 'No Subject', err.message || String(err)).catch(() => {});
 		}
 	},
 };

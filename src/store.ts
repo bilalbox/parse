@@ -42,6 +42,13 @@ export function articlePlainText(content: string | null): string {
 	return parsed.textContent || parsed.content?.replace(/<[^>]+>/g, ' ') || '';
 }
 
+export interface IngestFailure {
+	id: string;
+	url_or_subject: string;
+	error_message: string;
+	created_at: string;
+}
+
 export interface ArticleStore {
 	list(archived: boolean): Promise<ArticleListItem[]>;
 	get(id: string): Promise<StoredArticle | null>;
@@ -50,6 +57,9 @@ export interface ArticleStore {
 	saveSummary(id: string, summary: string): Promise<void>;
 	remove(id: string): Promise<boolean>;
 	search(query: string): Promise<SearchHit[]>;
+	recordFailure(urlOrSubject: string, errorMessage: string): Promise<void>;
+	listFailures(): Promise<IngestFailure[]>;
+	clearFailure(id: string): Promise<void>;
 }
 
 export interface MediaStorageAdapter {
@@ -125,6 +135,25 @@ export function createArticleStore(db: D1Database, mediaBucket?: MediaStorageAda
 				LIMIT 10
 			`).bind(query).all<SearchHit>();
 			return res.results;
+		},
+
+		async recordFailure(urlOrSubject, errorMessage) {
+			await db.prepare(
+				`INSERT INTO ingest_failures (id, url_or_subject, error_message, created_at)
+				 VALUES (?, ?, ?, datetime('now'))`
+			).bind(crypto.randomUUID(), urlOrSubject, errorMessage).run();
+		},
+
+		async listFailures() {
+			const res = await db.prepare(
+				`SELECT id, url_or_subject, error_message, created_at
+				 FROM ingest_failures ORDER BY created_at DESC LIMIT 50`
+			).all<IngestFailure>();
+			return res.results;
+		},
+
+		async clearFailure(id) {
+			await db.prepare('DELETE FROM ingest_failures WHERE id = ?').bind(id).run();
 		},
 	};
 }

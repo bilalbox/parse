@@ -17,6 +17,15 @@ CREATE TABLE articles (
 );
 
 -- Index the active/archived split so the default library query stays fast.
+CREATE INDEX IF NOT EXISTS idx_articles_source ON articles (source_type);
+
+CREATE TABLE IF NOT EXISTS ingest_failures (
+    id TEXT PRIMARY KEY,
+    url_or_subject TEXT NOT NULL,
+    error_message TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_articles_archived_created ON articles (archived, created_at DESC);
 
 -- 2. Create the FTS5 Virtual Table for Full-Text Search
