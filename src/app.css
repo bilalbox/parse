@@ -586,21 +586,28 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Action links recovered */
-.reader-content .details-collapsible {
-    margin: 1.5rem 0;
-    padding: 1rem;
-    border: 1px solid var(--border-glass);
+.reader-content .ai-summary-callout {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    border-left: 3px solid var(--accent);
     background: var(--bg-secondary);
+    border-radius: 0 8px 8px 0;
 }
 
-.reader-content .details-collapsible > summary {
-    cursor: pointer;
+.reader-content .ai-summary-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-family: var(--font-display);
     font-weight: 600;
     font-size: 0.9em;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    outline: none;
+    color: var(--text-primary);
+}
+
+.reader-content .ai-icon {
+    font-size: 1.2em;
 }
 
 .reader-content .summary-content {

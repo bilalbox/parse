@@ -274,6 +274,10 @@
 			{/if}
 		</div>
 	</section>
+
+	<footer style="text-align: center; padding: 2rem; padding-top: 0; color: var(--text-secondary); font-size: 0.85rem; font-family: var(--font-ui);">
+		<a href="/privacy" style="color: inherit; text-decoration: underline; text-underline-offset: 4px;">Privacy Policy</a>
+	</footer>
 </main>
 
 <!-- Add URL Bottom Sheet -->

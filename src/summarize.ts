@@ -18,10 +18,7 @@ const MAX_INPUT_CHARS = 15000;
 const SYSTEM_PROMPT = 'You are an expert reading assistant producing concise, high-signal markdown summaries.';
 
 function buildPrompt(textContent: string): string {
-	return `Summarize the article/email below as a markdown list with exactly these three sections. Use at most 3 bullets per section. Omit a section entirely if it has nothing of value.
-(1) Main points
-(2) Surprises
-(3) Actionable tools or techniques
+	return `Summarize the article/email below as a single, concise markdown bulleted list of exactly 3 to 5 key takeaways. Do not include any introductory or concluding text, headers, or sections. Just the bullets.
 
 Content:
 ${textContent.slice(0, MAX_INPUT_CHARS)}`;
