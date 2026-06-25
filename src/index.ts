@@ -55,24 +55,30 @@ app.use('/media/*', cors({
 
 // OAuth Routes
 app.get('/auth/google', async (c) => {
-	const turnstileResponse = c.req.query('cf-turnstile-response');
-	if (!turnstileResponse) {
-		return c.redirect('/login?error=turnstile_failed');
-	}
+	// ponytail: APK installs are trusted (can't solve the widget anyway); identified by the
+	// custom UA suffix set in capacitor.config.ts. Spoofable, but that's an accepted tradeoff here.
+	const isNativeApp = (c.req.header('User-Agent') || '').includes('ParseAndroidApp');
 
-	const formData = new FormData();
-	formData.append('secret', c.env.TURNSTILE_SECRET_KEY || '1x0000000000000000000000000000000AA');
-	formData.append('response', turnstileResponse);
-	formData.append('remoteip', c.req.header('CF-Connecting-IP') || '');
+	if (!isNativeApp) {
+		const turnstileResponse = c.req.query('cf-turnstile-response');
+		if (!turnstileResponse) {
+			return c.redirect('/login?error=turnstile_failed');
+		}
 
-	const turnstileResult = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-		body: formData,
-		method: 'POST',
-	});
+		const formData = new FormData();
+		formData.append('secret', c.env.TURNSTILE_SECRET_KEY || '1x0000000000000000000000000000000AA');
+		formData.append('response', turnstileResponse);
+		formData.append('remoteip', c.req.header('CF-Connecting-IP') || '');
 
-	const turnstileOutcome = await turnstileResult.json() as any;
-	if (!turnstileOutcome.success) {
-		return c.redirect('/login?error=turnstile_failed');
+		const turnstileResult = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+			body: formData,
+			method: 'POST',
+		});
+
+		const turnstileOutcome = await turnstileResult.json() as any;
+		if (!turnstileOutcome.success) {
+			return c.redirect('/login?error=turnstile_failed');
+		}
 	}
 
 	const state = generateState();

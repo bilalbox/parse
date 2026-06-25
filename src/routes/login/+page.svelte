@@ -1,10 +1,19 @@
 <script lang="ts">
 	import { settings } from '$lib/settings.svelte';
 	import { page } from '$app/stores';
+
+	let isNative = $state(false);
+	if (typeof window !== 'undefined') {
+		import('@capacitor/core').then(({ Capacitor }) => {
+			isNative = Capacitor.isNativePlatform();
+		});
+	}
 </script>
 
 <svelte:head>
-	<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+	{#if !isNative}
+		<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+	{/if}
 </svelte:head>
 
 <main class="login-view">
@@ -20,8 +29,10 @@
 		{/if}
 		
 		<form action="/auth/google" method="GET">
-			<!-- Turnstile testing sitekey -->
-			<div class="cf-turnstile turnstile-container" data-sitekey="0x4AAAAAADo-EeRA3ZndjkWH"></div>
+			{#if !isNative}
+				<!-- Turnstile testing sitekey -->
+				<div class="cf-turnstile turnstile-container" data-sitekey="0x4AAAAAADo-EeRA3ZndjkWH"></div>
+			{/if}
 			
 			<button type="submit" class="google-btn">
 				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
