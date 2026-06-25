@@ -25,7 +25,18 @@ jobs:
           node-version: 22
           cache: 'pnpm'
 
+      - name: Extract version info
+        id: version
+        run: |
+          # Extract version name by removing 'v' from tag, e.g. v1.2.3 -> 1.2.3
+          VERSION_NAME=${GITHUB_REF#refs/tags/v}
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          # Use the GitHub Actions run number as the version code
+          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
+
       - name: Install dependencies & Build Web
+        env:
+          VITE_APP_VERSION: ${{ env.VERSION_NAME }}
         run: |
           pnpm install --frozen-lockfile
           pnpm run build
@@ -37,15 +48,6 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'gradle'
-
-      - name: Extract version info
-        id: version
-        run: |
-          # Extract version name by removing 'v' from tag, e.g. v1.2.3 -> 1.2.3
-          VERSION_NAME=${GITHUB_REF#refs/tags/v}
-          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
-          # Use the GitHub Actions run number as the version code
-          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Decode Keystore
         env:

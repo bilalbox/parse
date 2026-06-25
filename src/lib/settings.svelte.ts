@@ -5,9 +5,17 @@ class SettingsStore {
 	isOnline = $state(true);
 	einkMode = $state(false);
 	user = $state<any>(null);
+	appVersion = $state(import.meta.env.VITE_APP_VERSION || 'dev');
 
 	constructor() {
 		if (typeof window !== 'undefined') {
+			import('@capacitor/core').then(({ Capacitor }) => {
+				if (Capacitor.isNativePlatform()) {
+					import('@capacitor/app').then(({ App }) =>
+						App.getInfo().then((info) => { this.appVersion = info.version; })
+					);
+				}
+			});
 			this.theme = localStorage.getItem('theme') || 'dark';
 			const storedFontSize = localStorage.getItem('parse_font_size');
 			if (storedFontSize) this.fontSize = parseFloat(storedFontSize);

@@ -17,8 +17,6 @@
 	let parseError = $state('');
 	
 
-	let appUpdateStatus = $state('');
-	let checkingUpdates = $state(false);
 
 	// Instead of manual functions, use library instance.
 	// But we still need handleParse to run queue inserts
@@ -129,58 +127,6 @@
 			goto('/login');
 		} catch (err) {
 			toast.show('Logout failed', 'error');
-		}
-	}
-
-	async function checkUpdates(): Promise<void> {
-		if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
-			toast.show('Offline updates are not supported in this browser.', 'error');
-			return;
-		}
-
-		checkingUpdates = true;
-		appUpdateStatus = 'Checking...';
-
-		try {
-			const registration = await navigator.serviceWorker.getRegistration();
-			if (!registration) {
-				appUpdateStatus = 'Offline cache is not active yet.';
-				checkingUpdates = false;
-				return;
-			}
-
-			let updateFound = false;
-			const onUpdatefound = () => {
-				updateFound = true;
-				appUpdateStatus = 'Downloading update...';
-				
-				const installingWorker = registration.installing;
-				if (installingWorker) {
-					installingWorker.addEventListener('statechange', () => {
-						if (installingWorker.state === 'installed') {
-							appUpdateStatus = 'Installing update...';
-							checkingUpdates = false;
-						}
-					});
-				} else {
-					checkingUpdates = false;
-				}
-			};
-
-			registration.addEventListener('updatefound', onUpdatefound);
-			await registration.update();
-
-			setTimeout(() => {
-				registration.removeEventListener('updatefound', onUpdatefound);
-				if (!updateFound) {
-					appUpdateStatus = 'App is up to date.';
-					checkingUpdates = false;
-				}
-			}, 1500);
-		} catch (err) {
-			console.error('Update check failed:', err);
-			appUpdateStatus = 'Check failed. Try again.';
-			checkingUpdates = false;
 		}
 	}
 
@@ -364,25 +310,8 @@
 				</button>
 			</div>
 
-			<div class="settings-group">
-				<label for="update-btn">App Update</label>
-				<p class="settings-help">Pull down the latest version of the app to your device for offline use.</p>
-				<div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.25rem;">
-					<button 
-						id="update-btn" 
-						class="token-cancel-btn" 
-						style="padding: 0.6rem 1rem; font-size: 0.9rem; margin: 0;"
-						onclick={checkUpdates}
-						disabled={checkingUpdates}
-					>
-						{checkingUpdates ? 'Checking...' : 'Check for Updates'}
-					</button>
-					{#if appUpdateStatus}
-						<span id="update-status" class="settings-help">{appUpdateStatus}</span>
-					{/if}
-				</div>
-			</div>
-			
+			<p class="settings-help" style="text-align: center; margin-top: 1rem;">Version {settings.appVersion}</p>
+
 			<div class="modal-footer">
 				<button id="token-cancel-btn" class="token-cancel-btn" onclick={cancelSettings}>Cancel</button>
 				<button id="token-save-btn" class="token-save-btn" onclick={saveSettings}>Save Changes</button>
