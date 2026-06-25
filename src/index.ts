@@ -55,9 +55,10 @@ app.use('/media/*', cors({
 
 // OAuth Routes
 app.get('/auth/google', async (c) => {
-	// ponytail: APK installs are trusted (can't solve the widget anyway); identified by the
-	// custom UA suffix set in capacitor.config.ts. Spoofable, but that's an accepted tradeoff here.
-	const isNativeApp = (c.req.header('User-Agent') || '').includes('ParseAndroidApp');
+	// ponytail: native flow runs in the system browser (Google blocks WebView OAuth), so the
+	// WebView UA tag doesn't reach us here — the app instead marks the request with ?native=1.
+	// Spoofable, same trust tradeoff as before: APK installs are already trusted.
+	const isNativeApp = c.req.query('native') === '1';
 
 	if (!isNativeApp) {
 		const turnstileResponse = c.req.query('cf-turnstile-response');
@@ -89,7 +90,10 @@ app.get('/auth/google', async (c) => {
 	
 	setCookie(c, 'google_oauth_state', state, { path: '/', secure: true, httpOnly: true, maxAge: 60 * 10, sameSite: 'Lax' });
 	setCookie(c, 'google_code_verifier', codeVerifier, { path: '/', secure: true, httpOnly: true, maxAge: 60 * 10, sameSite: 'Lax' });
-	
+	if (isNativeApp) {
+		setCookie(c, 'native_flow', '1', { path: '/', secure: true, httpOnly: true, maxAge: 60 * 10, sameSite: 'Lax' });
+	}
+
 	return c.redirect(url.toString());
 });
 
@@ -98,7 +102,8 @@ app.get('/auth/google/callback', async (c) => {
 	const state = c.req.query('state');
 	const storedState = getCookie(c, 'google_oauth_state');
 	const codeVerifier = getCookie(c, 'google_code_verifier');
-	
+	const isNativeApp = getCookie(c, 'native_flow') === '1';
+
 	if (!code || !state || !storedState || state !== storedState || !codeVerifier) {
 		return c.json({ error: 'Invalid state' }, 400);
 	}
@@ -128,8 +133,16 @@ app.get('/auth/google/callback', async (c) => {
 		}
 		
 		const session = await createSession(c.env.DB, user.id);
+
+		if (isNativeApp) {
+			// Native app runs in a separate cookie jar (system browser), so hand the session
+			// token back via deep link instead of a cookie; the app stores it and sends it as
+			// an Authorization: Bearer header from then on.
+			return c.redirect(`com.twenty3p.parse://auth?session=${session.id}`);
+		}
+
 		setCookie(c, 'SESSION_ID', session.id, { path: '/', secure: true, httpOnly: true, sameSite: 'Lax', maxAge: 60 * 60 * 24 * 30 });
-		
+
 		return c.redirect('/');
 	} catch (e) {
 		console.error('OAuth failed', e);

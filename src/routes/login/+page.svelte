@@ -8,6 +8,14 @@
 			isNative = Capacitor.isNativePlatform();
 		});
 	}
+
+	// Google blocks OAuth inside the app's WebView, so native opens the flow in the
+	// system browser; the callback hands the session back via a deep link (see settings.svelte.ts).
+	async function loginNative(e: SubmitEvent) {
+		e.preventDefault();
+		const { Browser } = await import('@capacitor/browser');
+		await Browser.open({ url: 'https://parse.23p.dev/auth/google?native=1' });
+	}
 </script>
 
 <svelte:head>
@@ -28,7 +36,7 @@
 			<p class="error-notice">Security check failed. Please try again.</p>
 		{/if}
 		
-		<form action="/auth/google" method="GET">
+		<form action="/auth/google" method="GET" onsubmit={isNative ? loginNative : undefined}>
 			{#if !isNative}
 				<!-- Turnstile testing sitekey -->
 				<div class="cf-turnstile turnstile-container" data-sitekey="0x4AAAAAADo-EeRA3ZndjkWH"></div>

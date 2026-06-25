@@ -11,9 +11,19 @@ class SettingsStore {
 		if (typeof window !== 'undefined') {
 			import('@capacitor/core').then(({ Capacitor }) => {
 				if (Capacitor.isNativePlatform()) {
-					import('@capacitor/app').then(({ App }) =>
-						App.getInfo().then((info) => { this.appVersion = info.version; })
-					);
+					import('@capacitor/app').then(({ App }) => {
+						App.getInfo().then((info) => { this.appVersion = info.version; });
+						// Google OAuth runs in the system browser (separate cookie jar), so the
+						// callback hands the session back via this deep link instead of a cookie.
+						App.addListener('appUrlOpen', ({ url }) => {
+							const session = new URL(url).searchParams.get('session');
+							if (session) {
+								localStorage.setItem('native_session', session);
+								import('@capacitor/browser').then(({ Browser }) => Browser.close().catch(() => {}));
+								location.href = '/';
+							}
+						});
+					});
 				}
 			});
 			this.theme = localStorage.getItem('theme') || 'dark';
@@ -102,6 +112,8 @@ class SettingsStore {
 	// Helper to make authorized fetch calls
 	async authFetch(url: string, options: RequestInit = {}): Promise<Response> {
 		const headers = new Headers(options.headers || {});
+		const nativeSession = typeof window !== 'undefined' ? localStorage.getItem('native_session') : null;
+		if (nativeSession) headers.set('Authorization', `Bearer ${nativeSession}`);
 		return fetch(url, { ...options, headers, credentials: 'include' });
 	}
 }
