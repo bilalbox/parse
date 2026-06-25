@@ -11,6 +11,13 @@
 	let articleData = $state<any>(null);
 	let loading = $state(true);
 	let summarizing = $state(false);
+	let viewEl: HTMLElement | undefined = $state();
+	const READER_HEADER_HEIGHT = 64; // keep in sync with .app-header height in app.css
+
+	function turnPage(direction: 1 | -1): void {
+		// scroll by one screen minus the sticky header, so no content is skipped between pages
+		viewEl?.scrollBy({ top: direction * (viewEl.clientHeight - READER_HEADER_HEIGHT), behavior: 'auto' });
+	}
 
 	const id = $derived($page.params.id);
 
@@ -241,19 +248,24 @@
 	});
 </script>
 
-<main id="view-article" class="view active">
+<main id="view-article" class="view active" bind:this={viewEl}>
 	<nav class="app-header reader-header">
 		<button onclick={() => goto('/')} class="icon-btn" title="Back to Library">←</button>
-		
+
 		{#if !loading && articleData}
 			<div class="reader-controls">
-				<button
-					class="icon-btn"
-					onclick={() => tts.togglePlay()}
-					title={tts.isPlaying && tts.articleId === id ? 'Pause' : 'Read Aloud'}
-				>
-					{tts.isPlaying && tts.articleId === id ? '⏸' : '▶'}
-				</button>
+				{#if settings.einkMode}
+					<button class="icon-btn" onclick={() => turnPage(-1)} title="Previous Page">‹</button>
+					<button class="icon-btn" onclick={() => turnPage(1)} title="Next Page">›</button>
+				{:else}
+					<button
+						class="icon-btn"
+						onclick={() => tts.togglePlay()}
+						title={tts.isPlaying && tts.articleId === id ? 'Pause' : 'Read Aloud'}
+					>
+						{tts.isPlaying && tts.articleId === id ? '⏸' : '▶'}
+					</button>
+				{/if}
 				{#if articleData.unsubscribe_link}
 					<button class="icon-btn" onclick={runUnsubscribe} title="Unsubscribe">⊖</button>
 				{/if}
@@ -267,8 +279,8 @@
 		{/if}
 	</nav>
 	
-	<div 
-		id="reader-content" 
+	<div
+		id="reader-content"
 		class="reader-content"
 		class:rtl-content={tts.isArabicContent}
 		class:typography-sans={settings.fontFamily === 'sans'}

@@ -206,7 +206,9 @@
 			{/if}
 			<button class="icon-btn" id="add-btn" onclick={() => showAddSheet = true} title="Add URL">+</button>
 			<button class="icon-btn" id="settings-btn" onclick={() => showSettingsModal = true} title="Settings">⚙</button>
-			<button class="theme-toggle icon-btn" id="theme-toggle" onclick={() => settings.toggleTheme()} title="Toggle Theme">◑</button>
+			{#if !settings.einkMode}
+				<button class="theme-toggle icon-btn" id="theme-toggle" onclick={() => settings.toggleTheme()} title="Toggle Theme">◑</button>
+			{/if}
 		</div>
 	</header>
 
@@ -340,8 +342,20 @@
 			{/if}
 
 			<div class="settings-group" style="margin-top: 1rem;">
-				<button 
-					id="logout-btn" 
+				<label style="display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; cursor: pointer;">
+					E-ink Mode
+					<input type="checkbox"
+						checked={settings.einkMode}
+						onchange={() => settings.toggleEinkMode()}
+						style="width: 1.25rem; height: 1.25rem; accent-color: var(--accent); cursor: pointer;"
+					/>
+				</label>
+				<p class="settings-help" style="margin-top: 0.25rem;">High contrast, no animations, page-turn buttons. For e-ink readers like the Supernote Manta.</p>
+			</div>
+
+			<div class="settings-group" style="margin-top: 1rem;">
+				<button
+					id="logout-btn"
 					class="token-cancel-btn" 
 					style="width: 100%; border-color: var(--error); color: var(--error);" 
 					onclick={handleLogout}

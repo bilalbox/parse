@@ -3,6 +3,7 @@ class SettingsStore {
 	fontSize = $state(1.15);
 	fontFamily = $state('sans'); // 'sans' | 'serif' | 'amiri' | 'cairo'
 	isOnline = $state(true);
+	einkMode = $state(false);
 	user = $state<any>(null);
 
 	constructor() {
@@ -12,6 +13,7 @@ class SettingsStore {
 			if (storedFontSize) this.fontSize = parseFloat(storedFontSize);
 			this.fontFamily = localStorage.getItem('parse_font_family') || 'sans';
 			this.isOnline = navigator.onLine;
+			this.einkMode = localStorage.getItem('parse_eink_mode') === 'true';
 
 			// Add event listeners for online status
 			window.addEventListener('online', () => { this.isOnline = true; });
@@ -19,6 +21,15 @@ class SettingsStore {
 
 			// Set initial theme attribute
 			document.documentElement.setAttribute('data-theme', this.theme);
+			document.documentElement.classList.toggle('eink-mode', this.einkMode);
+		}
+	}
+
+	toggleEinkMode(): void {
+		this.einkMode = !this.einkMode;
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('parse_eink_mode', String(this.einkMode));
+			document.documentElement.classList.toggle('eink-mode', this.einkMode);
 		}
 	}
 
