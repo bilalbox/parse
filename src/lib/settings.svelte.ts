@@ -3,7 +3,6 @@ class SettingsStore {
 	fontSize = $state(1.15);
 	fontFamily = $state('sans'); // 'sans' | 'serif' | 'amiri' | 'cairo'
 	isOnline = $state(true);
-	deferredInstallPrompt = $state<any>(null);
 	user = $state<any>(null);
 
 	constructor() {
@@ -17,12 +16,6 @@ class SettingsStore {
 			// Add event listeners for online status
 			window.addEventListener('online', () => { this.isOnline = true; });
 			window.addEventListener('offline', () => { this.isOnline = false; });
-
-			// Listen for PWA installation prompt
-			window.addEventListener('beforeinstallprompt', (e) => {
-				e.preventDefault();
-				this.deferredInstallPrompt = e;
-			});
 
 			// Set initial theme attribute
 			document.documentElement.setAttribute('data-theme', this.theme);
@@ -51,16 +44,6 @@ class SettingsStore {
 		this.fontFamily = family;
 		if (typeof window !== 'undefined') {
 			localStorage.setItem('parse_font_family', family);
-		}
-	}
-
-	async installPWA() {
-		if (this.deferredInstallPrompt) {
-			this.deferredInstallPrompt.prompt();
-			const { outcome } = await this.deferredInstallPrompt.userChoice;
-			if (outcome === 'accepted') {
-				this.deferredInstallPrompt = null;
-			}
 		}
 	}
 

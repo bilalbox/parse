@@ -201,9 +201,6 @@
 	<header class="app-header">
 		<div class="logo">PARSE</div>
 		<div class="header-actions">
-			{#if settings.deferredInstallPrompt}
-				<button class="icon-btn" onclick={() => settings.installPWA()} title="Install App">📲</button>
-			{/if}
 			{#if !settings.isOnline}
 				<span class="settings-help" style="color: var(--error); margin-right: 0.5rem; font-weight: 500;">Offline</span>
 			{/if}

@@ -257,7 +257,7 @@
 				{#if articleData.unsubscribe_link}
 					<button class="icon-btn" onclick={runUnsubscribe} title="Unsubscribe">⊖</button>
 				{/if}
-				<button class="icon-btn" onclick={runSummarize} disabled={summarizing || !settings.isOnline} title="Summarize">✨</button>
+				<button class="icon-btn ai-icon" onclick={runSummarize} disabled={summarizing || !settings.isOnline} title="Summarize">✨</button>
 				<button class="icon-btn" onclick={archiveArticle} disabled={!settings.isOnline} title={articleData.archived ? 'Unarchive' : 'Archive'}>☑</button>
 				<button class="icon-btn btn-danger" onclick={deleteArticle} disabled={!settings.isOnline} title="Delete">🗑️</button>
 				<button class="icon-btn font-btn" onclick={() => settings.setFontSize(settings.fontSize - 0.1)} title="Decrease font size">A-</button>
@@ -285,6 +285,9 @@
 		{:else if articleData}
 			{@const payload = JSON.parse(articleData.content || '{}')}
 			<h1>{payload.title}</h1>
+			{#if articleData.url}
+				<a href={articleData.url} target="_blank" rel="noopener noreferrer" class="view-original-link">View original</a>
+			{/if}
 			<p style="color: var(--accent); margin-bottom: 2rem;">By {payload.byline || 'Unknown Author'}</p>
 			
 			<div id="tts-content-wrapper" use:ttsAttachment onclick={(e) => {

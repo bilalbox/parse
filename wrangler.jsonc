@@ -6,7 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "parse",
 	"main": "src/index.ts",
-	"compatibility_date": "2026-05-28",
+	"compatibility_date": "2026-06-23",
 	"compatibility_flags": [
 		"nodejs_compat",
 		"global_fetch_strictly_public"
@@ -49,10 +49,7 @@
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
-	"vars": {
-		"TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
-		"TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA"
-	},
+	
 	/**
 	 * Service Bindings (communicate between multiple Workers)
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
