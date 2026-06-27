@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { settings } from '$lib/settings.svelte';
 
@@ -59,7 +59,7 @@
 	onMount(() => {
 		document.title = 'Clipping | Parse';
 		
-		const params = $page.url.searchParams;
+		const params = page.url.searchParams;
 		sharedUrl = params.get('url') || params.get('text') || '';
 
 		// Android shares often carry titles and descriptions alongside the URL

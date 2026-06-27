@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { settings } from '$lib/settings.svelte';
 	import { tts } from '$lib/tts.svelte';
@@ -19,7 +19,7 @@
 		viewEl?.scrollBy({ top: direction * (viewEl.clientHeight - READER_HEADER_HEIGHT), behavior: 'auto' });
 	}
 
-	const id = $derived($page.params.id);
+	const id = $derived(page.params.id);
 
 	async function loadArticle(articleId: string): Promise<void> {
 		loading = true;
@@ -302,7 +302,7 @@
 			{/if}
 			<p style="color: var(--accent); margin-bottom: 2rem;">By {payload.byline || 'Unknown Author'}</p>
 			
-			<div id="tts-content-wrapper" use:ttsAttachment onclick={(e) => {
+			<div id="tts-content-wrapper" {@attach ttsAttachment} onclick={(e) => {
 				const target = e.target as HTMLElement;
 				if (target.classList.contains('tts-sentence')) {
 					const idx = parseInt(target.dataset.sentenceIndex || '');

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { settings } from '$lib/settings.svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	let isNative = $state(false);
 	if (typeof window !== 'undefined') {
@@ -29,10 +29,10 @@
 		<h1 class="logo">PARSE</h1>
 		<p class="subtitle">Edge reading, simplified.</p>
 		
-		{#if $page.url.searchParams.get('error') === 'invite_required'}
+		{#if page.url.searchParams.get('error') === 'invite_required'}
 			<p class="error-notice">An invite is required to create a new account.</p>
 		{/if}
-		{#if $page.url.searchParams.get('error') === 'turnstile_failed'}
+		{#if page.url.searchParams.get('error') === 'turnstile_failed'}
 			<p class="error-notice">Security check failed. Please try again.</p>
 		{/if}
 		

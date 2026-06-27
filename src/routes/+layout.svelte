@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '../app.css';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { settings } from '$lib/settings.svelte';
 	import { tts } from '$lib/tts.svelte';
 	import { toast } from '$lib/toast.svelte';
@@ -11,7 +11,7 @@
 </script>
 
 <div id="layout-root" style="width: 100%; height: 100%; position: relative;">
-	{#key $page.url.pathname}
+	{#key page.url.pathname}
 		<div
 			in:fly={{ x: 200, duration: 250, delay: 150 }}
 			out:fly={{ x: -100, duration: 150 }}
@@ -111,7 +111,7 @@
 							{#if !tts.hasVoice}
 								<option value="">No voice installed</option>
 							{:else}
-								{#each tts.getUsableVoices() as voice}
+								{#each tts.getUsableVoices() as voice (voice.name)}
 									<option value={voice.name}>🗣️ {voice.name} ({voice.lang})</option>
 								{/each}
 							{/if}
