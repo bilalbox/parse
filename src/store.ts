@@ -12,7 +12,7 @@ export interface StoredArticle {
 	id: string;
 	title: string;
 	author: string | null;
-	url: string;
+	url: string | null;
 	content: string | null;
 	source_type: string;
 	unsubscribe_link: string | null;

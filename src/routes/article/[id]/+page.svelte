@@ -5,6 +5,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { tts } from '$lib/tts.svelte';
 	import { toast } from '$lib/toast.svelte';
+	import LinkActionSheet from '$lib/components/LinkActionSheet.svelte';
 	import DOMPurify from 'dompurify';
 
 	// Svelte 5 States
@@ -138,6 +139,24 @@
 		const currentIdx = families.indexOf(settings.fontFamily);
 		const nextIdx = (currentIdx + 1) % families.length;
 		settings.setFontFamily(families[nextIdx]);
+	}
+
+	function interceptLinks(node: HTMLElement) {
+		const handleClick = (e: MouseEvent) => {
+			const target = e.target as HTMLElement;
+			const anchor = target.closest('a');
+			if (anchor && anchor.href && anchor.href.startsWith('http')) {
+				e.preventDefault();
+				selectedLinkUrl = anchor.href;
+				showLinkSheet = true;
+			}
+		};
+		node.addEventListener('click', handleClick);
+		return {
+			destroy() {
+				node.removeEventListener('click', handleClick);
+			}
+		};
 	}
 
 	async function saveLinkAndDismiss(url: string) {
@@ -318,15 +337,8 @@
 			{/if}
 			<p style="color: var(--accent); margin-bottom: 2rem;">By {payload.byline || 'Unknown Author'}</p>
 			
-			<div id="tts-content-wrapper" {@attach ttsAttachment} onclick={(e) => {
+			<div id="tts-content-wrapper" use:interceptLinks {@attach ttsAttachment} onclick={(e) => {
 				const target = e.target as HTMLElement;
-				const anchor = target.closest('a');
-				if (anchor && anchor.href && anchor.href.startsWith('http')) {
-					e.preventDefault();
-					selectedLinkUrl = anchor.href;
-					showLinkSheet = true;
-					return;
-				}
 				if (target.classList.contains('tts-sentence')) {
 					const idx = parseInt(target.dataset.sentenceIndex || '');
 					if (!isNaN(idx)) {
@@ -354,34 +366,9 @@
 	</div>
 </main>
 
-<div class="bottom-sheet {showLinkSheet ? 'active' : ''}">
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="sheet-backdrop" onclick={() => (showLinkSheet = false)}></div>
-	<div class="sheet-content">
-		<div class="sheet-header">
-			<h3>Link Options</h3>
-			<button class="icon-btn" onclick={() => (showLinkSheet = false)}>×</button>
-		</div>
-		<div class="link-url-preview" style="margin-bottom: 1rem; color: var(--text-secondary); word-break: break-all; font-size: 0.9rem;">
-			{selectedLinkUrl}
-		</div>
-		<div class="sheet-actions" style="display: flex; flex-direction: column; gap: 0.5rem;">
-			<button 
-				class="card-btn" 
-				style="padding: 1rem; font-size: 1rem; text-align: left; border: 1px solid var(--border-glass);"
-				onclick={() => saveLinkAndDismiss(selectedLinkUrl)}>
-				➕ Save to Parse
-			</button>
-			<a 
-				href={selectedLinkUrl} 
-				target="_blank" 
-				rel="noopener noreferrer"
-				class="card-btn"
-				style="padding: 1rem; font-size: 1rem; text-align: left; text-decoration: none; display: block; border: 1px solid var(--border-glass);"
-				onclick={() => (showLinkSheet = false)}>
-				🌐 Open in Browser
-			</a>
-		</div>
-	</div>
-</div>
+<LinkActionSheet 
+	url={selectedLinkUrl} 
+	show={showLinkSheet} 
+	onClose={() => showLinkSheet = false} 
+	onSave={saveLinkAndDismiss} 
+/>

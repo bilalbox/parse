@@ -17,7 +17,7 @@ export interface RescueCtx {
 export interface ArticleMeta {
 	title: string;
 	author: string;
-	url: string;
+	url: string | null;
 	sourceType: 'web' | 'email';
 	unsubscribeLink: string | null;
 	unsubscribeOneClick: boolean;
@@ -40,7 +40,7 @@ export interface Article {
 	id: string;
 	title: string;
 	author: string;
-	url: string;
+	url: string | null;
 	sourceType: 'web' | 'email';
 	unsubscribeLink: string | null;
 	unsubscribeOneClick: boolean;

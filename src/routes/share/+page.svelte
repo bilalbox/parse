@@ -5,6 +5,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { toast } from '$lib/toast.svelte';
 	import { App } from '@capacitor/app';
+	import { Capacitor } from '@capacitor/core';
 
 	let status = $state('Clipping...');
 	let errorMsg = $state('');
@@ -42,13 +43,13 @@
 			toast.show('Link saved ✓');
 
 			// Try to close the app/tab automatically after a short delay
-			setTimeout(() => {
-				try {
-					App.exitApp();
-				} catch (e) {
+			setTimeout(async () => {
+				if (Capacitor.isNativePlatform()) {
+					await App.exitApp();
+				} else {
 					try {
 						window.close();
-					} catch (e2) {
+					} catch (e) {
 						// Browser security might block window.close()
 					}
 				}
