@@ -3,6 +3,8 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { settings } from '$lib/settings.svelte';
+	import { toast } from '$lib/toast.svelte';
+	import { App } from '@capacitor/app';
 
 	let status = $state('Clipping...');
 	let errorMsg = $state('');
@@ -37,15 +39,20 @@
 			status = 'Saved!';
 			success = true;
 			loading = false;
+			toast.show('Link saved ✓');
 
-			// Try to close the tab automatically after 1.5s
+			// Try to close the app/tab automatically after a short delay
 			setTimeout(() => {
 				try {
-					window.close();
+					App.exitApp();
 				} catch (e) {
-					// Browser security might block window.close()
+					try {
+						window.close();
+					} catch (e2) {
+						// Browser security might block window.close()
+					}
 				}
-			}, 1500);
+			}, 800);
 
 		} catch (err: any) {
 			status = 'Failed to clip';

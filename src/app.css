@@ -541,6 +541,8 @@ h1, h2, h3, h4, h5, h6 {
     padding: 2rem 5%;
     font-size: 1.15rem;
     transition: font-size 0.3s ease;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .reader-loading {
@@ -567,11 +569,20 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .reader-content img,
-.reader-content figure {
+.reader-content figure,
+.reader-content video,
+.reader-content iframe {
     max-width: 100%;
     height: auto;
     margin: 2rem 0;
     display: block;
+}
+
+.reader-content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .reader-content blockquote {

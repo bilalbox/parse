@@ -12,6 +12,8 @@
 	let loading = $state(true);
 	let summarizing = $state(false);
 	let viewEl: HTMLElement | undefined = $state();
+	let selectedLinkUrl = $state('');
+	let showLinkSheet = $state(false);
 	const READER_HEADER_HEIGHT = 64; // keep in sync with .app-header height in app.css
 
 	function turnPage(direction: 1 | -1): void {
@@ -136,6 +138,20 @@
 		const currentIdx = families.indexOf(settings.fontFamily);
 		const nextIdx = (currentIdx + 1) % families.length;
 		settings.setFontFamily(families[nextIdx]);
+	}
+
+	async function saveLinkAndDismiss(url: string) {
+		showLinkSheet = false;
+		toast.show('Link saved ✓');
+		try {
+			await settings.authFetch('/api/queue', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ url })
+			});
+		} catch (err: any) {
+			toast.show('Failed to save link', 'error');
+		}
 	}
 
 	// Custom markdown summary renderer matching the original implementation
@@ -304,6 +320,13 @@
 			
 			<div id="tts-content-wrapper" {@attach ttsAttachment} onclick={(e) => {
 				const target = e.target as HTMLElement;
+				const anchor = target.closest('a');
+				if (anchor && anchor.href && anchor.href.startsWith('http')) {
+					e.preventDefault();
+					selectedLinkUrl = anchor.href;
+					showLinkSheet = true;
+					return;
+				}
 				if (target.classList.contains('tts-sentence')) {
 					const idx = parseInt(target.dataset.sentenceIndex || '');
 					if (!isNaN(idx)) {
@@ -330,3 +353,35 @@
 		{/if}
 	</div>
 </main>
+
+<div class="bottom-sheet {showLinkSheet ? 'active' : ''}">
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="sheet-backdrop" onclick={() => (showLinkSheet = false)}></div>
+	<div class="sheet-content">
+		<div class="sheet-header">
+			<h3>Link Options</h3>
+			<button class="icon-btn" onclick={() => (showLinkSheet = false)}>×</button>
+		</div>
+		<div class="link-url-preview" style="margin-bottom: 1rem; color: var(--text-secondary); word-break: break-all; font-size: 0.9rem;">
+			{selectedLinkUrl}
+		</div>
+		<div class="sheet-actions" style="display: flex; flex-direction: column; gap: 0.5rem;">
+			<button 
+				class="card-btn" 
+				style="padding: 1rem; font-size: 1rem; text-align: left; border: 1px solid var(--border-glass);"
+				onclick={() => saveLinkAndDismiss(selectedLinkUrl)}>
+				➕ Save to Parse
+			</button>
+			<a 
+				href={selectedLinkUrl} 
+				target="_blank" 
+				rel="noopener noreferrer"
+				class="card-btn"
+				style="padding: 1rem; font-size: 1rem; text-align: left; text-decoration: none; display: block; border: 1px solid var(--border-glass);"
+				onclick={() => (showLinkSheet = false)}>
+				🌐 Open in Browser
+			</a>
+		</div>
+	</div>
+</div>
