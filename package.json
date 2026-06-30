@@ -11,6 +11,7 @@
     "start": "wrangler dev",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest",
+    "test:e2e": "playwright test",
     "cf-typegen": "wrangler types",
     "db:migrate:local": "wrangler d1 migrations apply parse-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply parse-db --remote",
@@ -21,6 +22,7 @@
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@cloudflare/vitest-pool-workers": "^0.16.20",
+    "@playwright/test": "^1.61.1",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.68.0",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",

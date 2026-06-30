@@ -87,7 +87,17 @@ export function createArticleStore(db: D1Database, userId: string, mediaBucket?:
 			await db.prepare(
 				`INSERT INTO articles (id, user_id, title, author, url, content, source_type, unsubscribe_link, unsubscribe_one_click, created_at)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
-			).bind(a.id, userId, a.title, a.author, a.url, a.content, a.sourceType, a.unsubscribeLink, a.unsubscribeOneClick ? 1 : 0).run();
+			).bind(
+				a.id, 
+				userId, 
+				a.title ?? null, 
+				a.author ?? null, 
+				a.url ?? null, 
+				a.content ?? null, 
+				a.sourceType, 
+				a.unsubscribeLink ?? null, 
+				a.unsubscribeOneClick ? 1 : 0
+			).run();
 		},
 
 		// Returns false when no such article exists (so the caller can 404).

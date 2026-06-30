@@ -28,9 +28,10 @@ describe('ArticleStore', () => {
 			`DROP TABLE IF EXISTS articles`,
 			`CREATE TABLE articles (
 				id TEXT PRIMARY KEY,
+				user_id TEXT NOT NULL,
 				title TEXT NOT NULL,
 				author TEXT,
-				url TEXT NOT NULL,
+				url TEXT,
 				content JSON,
 				source_type TEXT DEFAULT 'web',
 				unsubscribe_link TEXT,
@@ -55,7 +56,7 @@ describe('ArticleStore', () => {
 			await env.DB.prepare(s).run();
 		}
 
-		const store = createArticleStore(env.DB);
+		const store = createArticleStore(env.DB, 'test-user');
 		
 		await store.create({
 			id: 'test-123',
