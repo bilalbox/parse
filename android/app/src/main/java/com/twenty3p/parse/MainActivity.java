@@ -3,8 +3,6 @@ package com.twenty3p.parse;
 import android.content.Intent;
 import android.net.Uri;
 import com.getcapacitor.BridgeActivity;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends BridgeActivity {
     private String pendingShareText;
@@ -71,7 +69,19 @@ public class MainActivity extends BridgeActivity {
 
         String text = pendingShareText;
         pendingShareText = null;
-        String path = "/share?text=" + URLEncoder.encode(text, StandardCharsets.UTF_8);
-        getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(path));
+
+        String baseUrl = getBridge().getServerUrl();
+        if (baseUrl == null || baseUrl.isEmpty()) {
+            baseUrl = getBridge().getLocalUrl();
+        }
+        // Relative paths resolve to file:// in WebView; use the Capacitor server origin.
+        String url = Uri.parse(baseUrl)
+            .buildUpon()
+            .appendPath("share")
+            .appendQueryParameter("text", text)
+            .build()
+            .toString();
+
+        getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(url));
     }
 }
