@@ -6,6 +6,7 @@
 	import { tts } from '$lib/tts.svelte';
 	import { toast } from '$lib/toast.svelte';
 	import LinkActionSheet from '$lib/components/LinkActionSheet.svelte';
+	import ImageViewer from '$lib/components/ImageViewer.svelte';
 	import DOMPurify from 'dompurify';
 
 	// Svelte 5 States
@@ -15,6 +16,8 @@
 	let viewEl: HTMLElement | undefined = $state();
 	let selectedLinkUrl = $state('');
 	let showLinkSheet = $state(false);
+	let selectedImageUrl = $state('');
+	let showImageViewer = $state(false);
 	const READER_HEADER_HEIGHT = 64; // keep in sync with .app-header height in app.css
 
 	function turnPage(direction: 1 | -1): void {
@@ -141,14 +144,20 @@
 		settings.setFontFamily(families[nextIdx]);
 	}
 
-	function interceptLinks(node: HTMLElement) {
+	function interceptInteractions(node: HTMLElement) {
 		const handleClick = (e: MouseEvent) => {
 			const target = e.target as HTMLElement;
 			const anchor = target.closest('a');
+			const img = target.closest('img');
+			
 			if (anchor && anchor.href && anchor.href.startsWith('http')) {
 				e.preventDefault();
 				selectedLinkUrl = anchor.href;
 				showLinkSheet = true;
+			} else if (img && img.src && img.src.startsWith('http')) {
+				e.preventDefault();
+				selectedImageUrl = img.src;
+				showImageViewer = true;
 			}
 		};
 		node.addEventListener('click', handleClick);
@@ -337,7 +346,7 @@
 			{/if}
 			<p style="color: var(--accent); margin-bottom: 2rem;">By {payload.byline || 'Unknown Author'}</p>
 			
-			<div id="tts-content-wrapper" use:interceptLinks {@attach ttsAttachment} onclick={(e) => {
+			<div id="tts-content-wrapper" use:interceptInteractions {@attach ttsAttachment} onclick={(e) => {
 				const target = e.target as HTMLElement;
 				if (target.classList.contains('tts-sentence')) {
 					const idx = parseInt(target.dataset.sentenceIndex || '');
@@ -371,4 +380,10 @@
 	show={showLinkSheet} 
 	onClose={() => showLinkSheet = false} 
 	onSave={saveLinkAndDismiss} 
+/>
+
+<ImageViewer 
+	src={selectedImageUrl} 
+	show={showImageViewer} 
+	onClose={() => showImageViewer = false} 
 />

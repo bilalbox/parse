@@ -4,6 +4,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { toast } from '$lib/toast.svelte';
 	import { Library } from '$lib/Library.svelte';
+	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 
 	const library = new Library();
 	
@@ -159,72 +160,74 @@
 		</div>
 	</header>
 
-	<section class="library-section">
-		<div class="library-header">
-			<h2>Library</h2>
-			<div class="library-tools">
-				<div class="filter-toggle" id="filter-toggle">
-					<button class="filter-btn" class:active={library.filter === 'active'} onclick={() => library.setFilter('active')}>Active</button>
-					<button class="filter-btn" class:active={library.filter === 'archived'} onclick={() => library.setFilter('archived')}>Archived</button>
-				</div>
-				<div class="search-box">
-					<input type="text" id="search-input" value={library.query} oninput={(e) => library.search(e.currentTarget.value)} placeholder="Search...">
+	<PullToRefresh onRefresh={async () => { await library.load(); }}>
+		<section class="library-section">
+			<div class="library-header">
+				<h2>Library</h2>
+				<div class="library-tools">
+					<div class="filter-toggle" id="filter-toggle">
+						<button class="filter-btn" class:active={library.filter === 'active'} onclick={() => library.setFilter('active')}>Active</button>
+						<button class="filter-btn" class:active={library.filter === 'archived'} onclick={() => library.setFilter('archived')}>Archived</button>
+					</div>
+					<div class="search-box">
+						<input type="text" id="search-input" value={library.query} oninput={(e) => library.search(e.currentTarget.value)} placeholder="Search...">
+					</div>
 				</div>
 			</div>
-		</div>
-		
-		<div id="articles-grid" class="articles-grid">
-			{#if library.loading && library.filteredList.length === 0}
-				<div class="skeleton-card"></div>
-				<div class="skeleton-card"></div>
-				<div class="skeleton-card"></div>
-			{:else if library.error && library.filteredList.length === 0}
-				<p style="color: var(--error); grid-column: 1/-1; text-align: center; padding: 2rem;">
-					{library.error.message}
-				</p>
-			{:else if library.filteredList.length === 0}
-				<p style="color: var(--text-secondary); grid-column: 1/-1; text-align: center; padding: 2rem;">
-					{library.filter === 'archived' ? 'No archived articles yet.' : 'Your library is empty. Start by parsing an article above!'}
-				</p>
-			{:else}
-				{#each library.filteredList as article (article.id)}
-					<div class="article-card" onclick={() => goto(`/article/${article.id}`)} onkeydown={() => {}} role="button" tabindex="0">
-						<h3 class="card-title">{article.title}</h3>
-						<div class="card-meta">
-							<span class="author">{article.author || 'Unknown'}</span>
-							<span class="date">{new Date(article.created_at).toLocaleDateString()}</span>
-						</div>
-						<div class="card-actions">
-							{#if article.unsubscribe_link}
+			
+			<div id="articles-grid" class="articles-grid">
+				{#if library.loading && library.filteredList.length === 0}
+					<div class="skeleton-card"></div>
+					<div class="skeleton-card"></div>
+					<div class="skeleton-card"></div>
+				{:else if library.error && library.filteredList.length === 0}
+					<p style="color: var(--error); grid-column: 1/-1; text-align: center; padding: 2rem;">
+						{library.error.message}
+					</p>
+				{:else if library.filteredList.length === 0}
+					<p style="color: var(--text-secondary); grid-column: 1/-1; text-align: center; padding: 2rem;">
+						{library.filter === 'archived' ? 'No archived articles yet.' : 'Your library is empty. Start by parsing an article above!'}
+					</p>
+				{:else}
+					{#each library.filteredList as article (article.id)}
+						<div class="article-card" onclick={() => goto(`/article/${article.id}`)} onkeydown={() => {}} role="button" tabindex="0">
+							<h3 class="card-title">{article.title}</h3>
+							<div class="card-meta">
+								<span class="author">{article.author || 'Unknown'}</span>
+								<span class="date">{new Date(article.created_at).toLocaleDateString()}</span>
+							</div>
+							<div class="card-actions">
+								{#if article.unsubscribe_link}
+									<button 
+										class="card-btn card-unsub" 
+										onclick={(e) => { e.stopPropagation(); runUnsubscribe(article.id); }} 
+										title="Unsubscribe from this newsletter"
+										disabled={!settings.isOnline}
+									>
+										Unsubscribe
+									</button>
+								{/if}
 								<button 
-									class="card-btn card-unsub" 
-									onclick={(e) => { e.stopPropagation(); runUnsubscribe(article.id); }} 
-									title="Unsubscribe from this newsletter"
+									class="card-btn card-archive" 
+									onclick={(e) => { e.stopPropagation(); archiveArticle(article.id, library.filter !== 'archived'); }}
 									disabled={!settings.isOnline}
 								>
-									Unsubscribe
+									{library.filter === 'archived' ? 'Unarchive' : 'Archive'}
 								</button>
-							{/if}
-							<button 
-								class="card-btn card-archive" 
-								onclick={(e) => { e.stopPropagation(); archiveArticle(article.id, library.filter !== 'archived'); }}
-								disabled={!settings.isOnline}
-							>
-								{library.filter === 'archived' ? 'Unarchive' : 'Archive'}
-							</button>
-							<button 
-								class="card-btn card-delete" 
-								onclick={(e) => { e.stopPropagation(); deleteArticle(article.id); }}
-								disabled={!settings.isOnline}
-							>
-								Delete
-							</button>
+								<button 
+									class="card-btn card-delete" 
+									onclick={(e) => { e.stopPropagation(); deleteArticle(article.id); }}
+									disabled={!settings.isOnline}
+								>
+									Delete
+								</button>
+							</div>
 						</div>
-					</div>
-				{/each}
-			{/if}
-		</div>
-	</section>
+					{/each}
+				{/if}
+			</div>
+		</section>
+	</PullToRefresh>
 
 	<footer style="text-align: center; padding: 2rem; padding-top: 0; color: var(--text-secondary); font-size: 0.85rem; font-family: var(--font-ui);">
 		<a href="/privacy" style="color: inherit; text-decoration: underline; text-underline-offset: 4px;">Privacy Policy</a>
@@ -270,7 +273,7 @@
 			
 			{#if settings.user}
 			<div class="settings-group" style="margin-top: 1rem;">
-				<label>Forwarding Address</label>
+				<div class="setting-label">Forwarding Address</div>
 				<p class="settings-help" style="word-break: break-all;">{settings.user.email_alias}</p>
 				<p class="settings-help" style="margin-top: 0.25rem; font-size: 0.8rem;">Emails sent to this address will be saved to your library.</p>
 			</div>

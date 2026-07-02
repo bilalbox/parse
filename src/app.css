@@ -616,6 +616,17 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 0.9em;
 }
 
+.article-body * {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.article-body pre,
+.article-body table,
+.article-body code {
+    overflow-x: auto !important;
+}
+
 /* Action links recovered */
 .reader-content .ai-summary-callout {
     margin: 2rem 0;
@@ -791,7 +802,8 @@ h1, h2, h3, h4, h5, h6 {
     gap: 0.4rem;
 }
 
-.settings-group label {
+.settings-group label,
+.settings-group .setting-label {
     font-size: 0.95rem;
     font-weight: 600;
     color: var(--text-primary);
