@@ -7,7 +7,7 @@
 	import { toast } from '$lib/toast.svelte';
 	import LinkActionSheet from '$lib/components/LinkActionSheet.svelte';
 	import ImageViewer from '$lib/components/ImageViewer.svelte';
-	import DOMPurify from 'dompurify';
+	import { sanitizeArticleHtml } from '$lib/sanitize-email';
 
 	// Svelte 5 States
 	let articleData = $state<any>(null);
@@ -362,13 +362,13 @@
 							<strong>AI Summary</strong>
 						</div>
 						<div class="summary-content">
-							{@html DOMPurify.sanitize(rewriteHtmlContent(renderSummary(articleData.summary)))}
+							{@html sanitizeArticleHtml(rewriteHtmlContent(renderSummary(articleData.summary)))}
 						</div>
 					</div>
 				{/if}
 				
 				<div class="article-body">
-					{@html DOMPurify.sanitize(rewriteHtmlContent(payload.content))}
+					{@html sanitizeArticleHtml(rewriteHtmlContent(payload.content))}
 				</div>
 			</div>
 		{/if}

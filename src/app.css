@@ -543,6 +543,7 @@ h1, h2, h3, h4, h5, h6 {
     transition: font-size 0.3s ease;
     overflow-wrap: break-word;
     word-break: break-word;
+    overflow-x: hidden;
 }
 
 .reader-loading {
@@ -616,15 +617,65 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 0.9em;
 }
 
-.article-body * {
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+#tts-content-wrapper {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
-.article-body pre,
+.article-body {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+}
+
+.article-body,
+.article-body * {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word;
+}
+
+/* Flatten layout tables to a single column on the narrow viewport */
 .article-body table,
-.article-body code {
-    overflow-x: auto !important;
+.article-body thead,
+.article-body tbody,
+.article-body tfoot,
+.article-body tr,
+.article-body th,
+.article-body td {
+    display: block !important;
+    width: auto !important;
+    max-width: 100% !important;
+}
+
+/* Backstop: kill width attrs and forced no-wrap the hook may miss */
+.article-body [width] { width: auto !important; }
+.article-body *:not(pre):not(code):not(pre *) { white-space: normal !important; }
+
+.article-body img { height: auto !important; }
+
+.article-body a,
+.article-body .tts-sentence {
+    word-break: break-all !important;
+}
+
+/* pre/code stay self-contained and scroll internally, never the page */
+.article-body pre {
+    overflow-x: auto;
+    max-width: 100% !important;
+    white-space: pre;
+}
+
+.article-body pre code {
+    display: block;
+    overflow-x: auto;
+    white-space: inherit;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
 }
 
 /* Action links recovered */

@@ -10,6 +10,7 @@ export default defineConfig({
 	use: {
 		trace: 'on-first-retry',
 		baseURL: 'http://localhost:8787',
+		serviceWorkers: 'block',
 	},
 	projects: [
 		{
@@ -22,7 +23,7 @@ export default defineConfig({
 		}
 	],
 	webServer: {
-		command: 'pnpm run dev',
+		command: 'pnpm run build && pnpm run dev',
 		url: 'http://localhost:8787',
 		reuseExistingServer: !process.env.CI,
 	},
