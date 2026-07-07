@@ -191,18 +191,23 @@ class TTSManager {
 		const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 		this.isArabicContent = arabicPattern.test(container.textContent || '') || arabicPattern.test(title || '');
 		this.resolveVoice();
-
-		// Sentence split the container in-place
-		this.sentences = this.prepareTtsContent(container);
-
-		// If we're already playing this article, re-highlight and restore progress
-		if (this.isPlaying && this.articleId === articleId) {
-			this.highlightSentence(this.currentIndex);
-		} else {
-			this.currentIndex = 0;
-		}
-
 		this.updateMediaSession();
+
+		// Sentence split the container in-place. Deferred a frame so the article's
+		// initial paint isn't blocked by this DOM rewrite on long/link-heavy content;
+		// only playback and click-to-jump need the tts-sentence spans, not display.
+		requestAnimationFrame(() => {
+			if (this.articleId !== articleId) return;
+
+			this.sentences = this.prepareTtsContent(container);
+
+			// If we're already playing this article, re-highlight and restore progress
+			if (this.isPlaying && this.articleId === articleId) {
+				this.highlightSentence(this.currentIndex);
+			} else {
+				this.currentIndex = 0;
+			}
+		});
 	}
 
 	/**
@@ -251,47 +256,51 @@ class TTSManager {
 			const blockSentences = this.splitIntoSentences(blockText);
 			if (blockSentences.length === 0) return;
 
-			let textNodesOffset = 0;
-			const nodeDetails = textNodesInBlock.map(n => {
-				const details = {
-					node: n,
-					start: textNodesOffset,
-					end: textNodesOffset + n.length
-				};
-				textNodesOffset += n.length;
-				return details;
-			});
+			// Locate each sentence's span in blockText once per block. This used to
+			// re-scan from scratch for every text node (O(text nodes * sentences)),
+			// which freezes the tab on link/formatting-heavy content (lots of small
+			// text nodes per block, e.g. newsletters).
+			// splitIntoSentences guarantees literal, contiguous slices of blockText,
+			// so each sentence's start is exactly where the previous one ended.
+			const sentenceBounds: { start: number; end: number }[] = [];
+			let sentenceCursor = 0;
+			for (const sText of blockSentences) {
+				const end = sentenceCursor + sText.length;
+				sentenceBounds.push({ start: sentenceCursor, end });
+				sentenceCursor = end;
+			}
 
+			let textNodesOffset = 0;
+			let sentenceIdx = 0;
 			textNodesInBlock.forEach(node => {
 				const parent = node.parentElement;
+				const nodeStart = textNodesOffset;
+				const nodeLength = node.length;
+				textNodesOffset += nodeLength;
 				if (!parent) return;
 
-				const details = nodeDetails.find(d => d.node === node);
-				if (!details) return;
-
-				const nodeStart = details.start;
-				const nodeLength = node.length;
 				const nodeText = node.textContent || '';
-
 				const fragment = document.createDocumentFragment();
 				let nodeOffset = 0;
 
-				let charOffset = 0;
-				for (let sentenceIdx = 0; sentenceIdx < blockSentences.length; sentenceIdx++) {
-					const currentSentenceStart = charOffset;
-					const sText = blockSentences[sentenceIdx];
-					charOffset += sText.length;
-					const sStartInBlock = blockText.indexOf(sText, currentSentenceStart);
-					const sEndInBlock = sStartInBlock + sText.length;
+				while (nodeOffset < nodeLength) {
+					const absOffset = nodeStart + nodeOffset;
+					while (sentenceIdx < sentenceBounds.length && sentenceBounds[sentenceIdx].end <= absOffset) {
+						sentenceIdx++;
+					}
+					if (sentenceIdx >= sentenceBounds.length) {
+						fragment.appendChild(document.createTextNode(nodeText.substring(nodeOffset)));
+						break;
+					}
 
-					const absNodeOffset = nodeStart + nodeOffset;
+					const { start: sStart, end: sEnd } = sentenceBounds[sentenceIdx];
 
-					if (absNodeOffset < sStartInBlock) {
-						const len = Math.min(sStartInBlock - absNodeOffset, nodeLength - nodeOffset);
+					if (absOffset < sStart) {
+						const len = Math.min(sStart - absOffset, nodeLength - nodeOffset);
 						fragment.appendChild(document.createTextNode(nodeText.substring(nodeOffset, nodeOffset + len)));
 						nodeOffset += len;
-					} else if (absNodeOffset >= sStartInBlock && absNodeOffset < sEndInBlock) {
-						const len = Math.min(sEndInBlock - absNodeOffset, nodeLength - nodeOffset);
+					} else {
+						const len = Math.min(sEnd - absOffset, nodeLength - nodeOffset);
 						const matchText = nodeText.substring(nodeOffset, nodeOffset + len);
 
 						const span = document.createElement('span');
@@ -303,7 +312,7 @@ class TTSManager {
 
 						if (!sentences[globalIdx]) {
 							sentences[globalIdx] = {
-								text: sText,
+								text: blockSentences[sentenceIdx],
 								elements: []
 							};
 						}
@@ -311,10 +320,6 @@ class TTSManager {
 
 						nodeOffset += len;
 					}
-				}
-
-				if (nodeOffset < nodeLength) {
-					fragment.appendChild(document.createTextNode(nodeText.substring(nodeOffset)));
 				}
 
 				parent.replaceChild(fragment, node);
