@@ -35,10 +35,6 @@ Retrieve API references and limits from:
 
 ## Output discipline (context-window protection — keep verbatim)
 - Use the Semble MCP tool to locate code; do NOT read whole files when a chunk will do.
-- Route verbose shell commands through RTK by running `rtk <command>` instead of the raw
-  command (e.g. `rtk pytest`, `rtk git status`, `rtk <build cmd>`). This is REQUIRED in
-  Antigravity, which has no shell hook; in Cursor the hook handles it automatically but the
-  rule is harmless.
 - Never dump full build/test/log output into context; summarize results.
 - Propose targeted edits/diffs; do NOT echo entire files back.
 - One task per session; ask before expanding scope.
