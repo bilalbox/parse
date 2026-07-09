@@ -38,6 +38,8 @@ describe('ArticleStore', () => {
 				unsubscribe_one_click INTEGER DEFAULT 0,
 				archived INTEGER DEFAULT 0,
 				summary TEXT,
+				published TEXT,
+				word_count INTEGER,
 				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			)`,
 			`CREATE VIRTUAL TABLE articles_fts USING fts5(
@@ -67,6 +69,8 @@ describe('ArticleStore', () => {
 			sourceType: 'web',
 			unsubscribeLink: null,
 			unsubscribeOneClick: false,
+			published: null,
+			wordCount: null,
 		});
 
 		const hits = await store.search('brown fox');

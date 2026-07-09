@@ -4,6 +4,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { toast } from '$lib/toast.svelte';
 	import { Library } from '$lib/Library.svelte';
+	import { readMinutes, formatDate } from '$lib/format';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 
 	const library = new Library();
@@ -194,7 +195,12 @@
 							<h3 class="card-title">{article.title}</h3>
 							<div class="card-meta">
 								<span class="author">{article.author || 'Unknown'}</span>
-								<span class="date">{new Date(article.created_at).toLocaleDateString()}</span>
+								<span class="card-meta-right">
+									<span class="date">{formatDate(article.published) ?? formatDate(article.created_at)}</span>
+									{#if article.word_count}
+										<span class="read-time">· {readMinutes(article.word_count)} min read</span>
+									{/if}
+								</span>
 							</div>
 							<div class="card-actions">
 								{#if article.unsubscribe_link}

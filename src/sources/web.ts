@@ -1,4 +1,5 @@
 import puppeteer from '@cloudflare/puppeteer';
+import Defuddle from 'defuddle';
 import { type Source, extractFeaturedImage } from '../extract';
 
 // The web ingest adapter. Renders the page with Puppeteer up front (the one
@@ -51,14 +52,30 @@ export async function createWebSource(url: string, browserBinding: Parameters<ty
 			}
 		},
 
-		metadata(article) {
+		// Readability's byline is often a mangled blob (author + date + tags run
+		// together) and it has no publish date. Defuddle extracts clean structured
+		// metadata (JSON-LD / meta / byline detection) from the same page, so we
+		// use it for title/author/published/wordCount — Readability still owns
+		// content, whose images Defuddle prunes too aggressively for our media
+		// pipeline. Runs on the disposable post-rescue sourceDoc (Defuddle's parse
+		// is destructive); the ESM core avoids defuddle/node's CJS bundle, which
+		// breaks the workers runtime. Falls back to Readability's values on error.
+		metadata(article, sourceDoc) {
+			let d: { title?: string; author?: string; published?: string; wordCount?: number } = {};
+			try {
+				d = new Defuddle(sourceDoc, { url, markdown: false }).parse();
+			} catch (err) {
+				console.error('Defuddle metadata failed:', url, err);
+			}
 			return {
-				title: article.title || 'Untitled',
-				author: article.byline || 'Unknown',
+				title: d.title || article.title || 'Untitled',
+				author: d.author || article.byline || 'Unknown',
 				url,
 				sourceType: 'web',
 				unsubscribeLink: null,
 				unsubscribeOneClick: false,
+				published: d.published || null,
+				wordCount: d.wordCount ?? null,
 			};
 		},
 	};

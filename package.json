@@ -50,6 +50,7 @@
     "@mozilla/readability": "^0.6.0",
     "@oslojs/encoding": "^1.1.0",
     "arctic": "^3.7.0",
+    "defuddle": "^0.19.1",
     "dompurify": "^3.4.11",
     "hono": "^4.12.28",
     "linkedom": "^0.18.13",

@@ -46,6 +46,8 @@ function fakeSource(overrides: Partial<Source> = {}): Source {
 				sourceType: 'web',
 				unsubscribeLink: null,
 				unsubscribeOneClick: false,
+				published: null,
+				wordCount: null,
 			};
 		},
 		...overrides,

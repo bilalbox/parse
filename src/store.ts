@@ -19,13 +19,15 @@ export interface StoredArticle {
 	unsubscribe_one_click: number;
 	archived: number;
 	summary: string | null;
+	published: string | null;
+	word_count: number | null;
 	created_at: string;
 }
 
 // The metadata projection the library list returns (no heavy content column).
 export type ArticleListItem = Pick<
 	StoredArticle,
-	'id' | 'title' | 'author' | 'url' | 'unsubscribe_link' | 'archived' | 'created_at'
+	'id' | 'title' | 'author' | 'url' | 'unsubscribe_link' | 'archived' | 'published' | 'word_count' | 'created_at'
 >;
 
 export interface SearchHit {
@@ -71,7 +73,7 @@ export function createArticleStore(db: D1Database, userId: string, mediaBucket?:
 		// Default library is active items; pass archived=true for the archive.
 		async list(archived) {
 			const res = await db.prepare(
-				`SELECT id, title, author, url, unsubscribe_link, archived, created_at
+				`SELECT id, title, author, url, unsubscribe_link, archived, published, word_count, created_at
 				 FROM articles WHERE user_id = ? AND archived = ? ORDER BY created_at DESC LIMIT 50`
 			).bind(userId, archived ? 1 : 0).all<ArticleListItem>();
 			return res.results;
@@ -85,18 +87,20 @@ export function createArticleStore(db: D1Database, userId: string, mediaBucket?:
 		// every ingest path; created_at is set server-side.
 		async create(a) {
 			await db.prepare(
-				`INSERT INTO articles (id, user_id, title, author, url, content, source_type, unsubscribe_link, unsubscribe_one_click, created_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+				`INSERT INTO articles (id, user_id, title, author, url, content, source_type, unsubscribe_link, unsubscribe_one_click, published, word_count, created_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
 			).bind(
-				a.id, 
-				userId, 
-				a.title ?? null, 
-				a.author ?? null, 
-				a.url ?? null, 
-				a.content ?? null, 
-				a.sourceType, 
-				a.unsubscribeLink ?? null, 
-				a.unsubscribeOneClick ? 1 : 0
+				a.id,
+				userId,
+				a.title ?? null,
+				a.author ?? null,
+				a.url ?? null,
+				a.content ?? null,
+				a.sourceType,
+				a.unsubscribeLink ?? null,
+				a.unsubscribeOneClick ? 1 : 0,
+				a.published ?? null,
+				a.wordCount ?? null
 			).run();
 		},
 

@@ -21,6 +21,8 @@ export interface ArticleMeta {
 	sourceType: 'web' | 'email';
 	unsubscribeLink: string | null;
 	unsubscribeOneClick: boolean;
+	published: string | null;
+	wordCount: number | null;
 }
 
 // The seam in front of the extraction spine. One adapter per ingest path
@@ -31,7 +33,9 @@ export interface Source {
 	baseUrl: string;
 	resolveBytes(src: string): Promise<MediaBytes | null>;
 	rescue(ctx: RescueCtx): void;
-	metadata(article: any): ArticleMeta;
+	// Called last, after rescue — so a Source may run a destructive parser (e.g.
+	// Defuddle) on sourceDoc, which is disposable by this point.
+	metadata(article: any, sourceDoc: any): ArticleMeta;
 }
 
 // A finished Article, ready to persist. `content` is the Readability result
@@ -44,6 +48,8 @@ export interface Article {
 	sourceType: 'web' | 'email';
 	unsubscribeLink: string | null;
 	unsubscribeOneClick: boolean;
+	published: string | null;
+	wordCount: number | null;
 	content: string;
 }
 
@@ -132,7 +138,7 @@ export async function extractArticle(source: Source, bucket: R2Bucket): Promise<
 
 	article.content = articleDoc.toString();
 
-	const meta = source.metadata(article);
+	const meta = source.metadata(article, sourceDoc);
 	return {
 		id,
 		title: meta.title,
@@ -141,6 +147,8 @@ export async function extractArticle(source: Source, bucket: R2Bucket): Promise<
 		sourceType: meta.sourceType,
 		unsubscribeLink: meta.unsubscribeLink,
 		unsubscribeOneClick: meta.unsubscribeOneClick,
+		published: meta.published,
+		wordCount: meta.wordCount,
 		content: JSON.stringify(article),
 	};
 }

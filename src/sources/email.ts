@@ -190,6 +190,8 @@ export function createEmailSource(email: any, messageId: string): Source {
 				sourceType: 'email',
 				unsubscribeLink,
 				unsubscribeOneClick: oneClick,
+				published: email.date || null,
+				wordCount: null,
 			};
 		},
 	};

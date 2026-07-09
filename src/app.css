@@ -438,6 +438,12 @@ h1, h2, h3, h4, h5, h6 {
     letter-spacing: 0.05em;
 }
 
+.card-meta-right {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+
 .card-actions {
     display: flex;
     flex-wrap: wrap;

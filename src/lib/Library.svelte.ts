@@ -10,6 +10,8 @@ export interface ArticleListItem {
 	url: string;
 	unsubscribe_link: string | null;
 	archived: number;
+	published: string | null;
+	word_count: number | null;
 	created_at: string;
 }
 

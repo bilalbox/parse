@@ -8,6 +8,7 @@
 	import LinkActionSheet from '$lib/components/LinkActionSheet.svelte';
 	import ImageViewer from '$lib/components/ImageViewer.svelte';
 	import { sanitizeArticleHtml } from '$lib/sanitize-email';
+	import { readMinutes, formatDate } from '$lib/format';
 
 	// Svelte 5 States
 	let articleData = $state<any>(null);
@@ -344,7 +345,7 @@
 			{#if articleData.url}
 				<a href={articleData.url} target="_blank" rel="noopener noreferrer" class="view-original-link">View original</a>
 			{/if}
-			<p style="color: var(--accent); margin-bottom: 2rem;">By {payload.byline || 'Unknown Author'}</p>
+			<p style="color: var(--accent); margin-bottom: 2rem;">By {articleData.author || payload.byline || 'Unknown Author'}{#if formatDate(articleData.published)} · {formatDate(articleData.published)}{/if}{#if articleData.word_count} · {readMinutes(articleData.word_count)} min read{/if}</p>
 			
 			<div id="tts-content-wrapper" use:interceptInteractions {@attach ttsAttachment} onclick={(e) => {
 				const target = e.target as HTMLElement;
