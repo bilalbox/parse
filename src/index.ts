@@ -150,7 +150,55 @@ app.get('/auth/google/callback', async (c) => {
 	}
 });
 
+app.post('/api/auth/device', async (c) => {
+	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+	let code = '';
+	const randomValues = new Uint8Array(6);
+	crypto.getRandomValues(randomValues);
+	for (let i = 0; i < 6; i++) {
+		code += chars[randomValues[i] % chars.length];
+	}
+	const expiresAt = Math.floor(Date.now() / 1000) + 15 * 60;
+	await c.env.DB.prepare('INSERT INTO device_codes (code, expires_at) VALUES (?, ?)')
+		.bind(code, expiresAt)
+		.run();
+	return c.json({ code });
+});
+
+app.post('/api/auth/device/:code/poll', async (c) => {
+	const code = c.req.param('code').toUpperCase();
+	const result = await c.env.DB.prepare('SELECT user_id, expires_at FROM device_codes WHERE code = ?')
+		.bind(code)
+		.first<{ user_id: string | null, expires_at: number }>();
+
+	if (!result || result.expires_at < Math.floor(Date.now() / 1000)) {
+		return c.json({ error: 'Code expired or invalid' }, 400);
+	}
+
+	if (!result.user_id) {
+		return c.json({ status: 'pending' }, 202);
+	}
+
+	const session = await createSession(c.env.DB, result.user_id);
+	setCookie(c, 'SESSION_ID', session.id, { path: '/', secure: true, httpOnly: true, sameSite: 'Lax', maxAge: 60 * 60 * 24 * 30 });
+	await c.env.DB.prepare('DELETE FROM device_codes WHERE code = ?').bind(code).run();
+	return c.json({ success: true });
+});
+
 app.use('/api/*', requireAuth);
+app.post('/api/auth/device/:code/link', async (c) => {
+	const code = c.req.param('code').toUpperCase();
+	const user = c.get('user');
+	
+	const result = await c.env.DB.prepare('UPDATE device_codes SET user_id = ? WHERE code = ? AND expires_at > ?')
+		.bind(user.id, code, Math.floor(Date.now() / 1000))
+		.run();
+	
+	if (result.meta.changes === 0) {
+		return c.json({ error: 'Code expired or invalid' }, 400);
+	}
+	return c.json({ success: true });
+});
 
 app.post('/api/auth/logout', async (c) => {
 	await invalidateSession(c.env.DB, c.get('session').id);
