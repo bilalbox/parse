@@ -4,4 +4,6 @@
     <string name="title_activity_main">parse</string>
     <string name="package_name">com.twenty3p.parse</string>
     <string name="custom_url_scheme">com.twenty3p.parse</string>
+    <!-- Must match capacitor.config.ts server.url — used by ShareActivity. -->
+    <string name="api_base_url">https://parse.23p.dev</string>
 </resources>

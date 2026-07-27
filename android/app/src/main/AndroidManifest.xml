@@ -24,6 +24,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="com.twenty3p.parse" android:host="auth" />
             </intent-filter>
+        </activity>
+
+        <!-- Fire-and-forget share target: no WebView on the happy path. -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/AppTheme.Transparent"
+            android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />

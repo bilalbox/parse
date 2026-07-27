@@ -4,8 +4,6 @@
 	import { goto } from '$app/navigation';
 	import { settings } from '$lib/settings.svelte';
 	import { toast } from '$lib/toast.svelte';
-	import { App } from '@capacitor/app';
-	import { Capacitor } from '@capacitor/core';
 
 	let status = $state('Clipping...');
 	let errorMsg = $state('');
@@ -29,6 +27,7 @@
 
 			if (!res.ok) {
 				if (res.status === 401) {
+					await settings.clearNativeSession();
 					goto('/login');
 					return;
 				}
@@ -36,25 +35,10 @@
 				throw new Error(data.error || 'Failed to queue article');
 			}
 
-			// Success
 			status = 'Saved!';
 			success = true;
 			loading = false;
 			toast.show('Link saved ✓');
-
-			// Try to close the app/tab automatically after a short delay
-			setTimeout(async () => {
-				if (Capacitor.isNativePlatform()) {
-					await App.exitApp();
-				} else {
-					try {
-						window.close();
-					} catch (e) {
-						// Browser security might block window.close()
-					}
-				}
-			}, 800);
-
 		} catch (err: any) {
 			status = 'Failed to clip';
 			success = false;

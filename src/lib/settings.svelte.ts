@@ -18,12 +18,17 @@ class SettingsStore {
 						App.addListener('appUrlOpen', ({ url }) => {
 							const session = new URL(url).searchParams.get('session');
 							if (session) {
-								localStorage.setItem('native_session', session);
-								import('@capacitor/browser').then(({ Browser }) => Browser.close().catch(() => {}));
-								location.href = '/';
+								void this.setNativeSession(session).then(() => {
+									import('@capacitor/browser').then(({ Browser }) => Browser.close().catch(() => {}));
+									location.href = '/';
+								});
 							}
 						});
 					});
+					// Existing installs may only have localStorage — mirror into native prefs
+					// so ShareActivity can authenticate without booting the WebView.
+					const existing = localStorage.getItem('native_session');
+					if (existing) void this.mirrorSessionToPreferences(existing);
 				}
 			});
 			this.theme = localStorage.getItem('theme') || 'dark';
@@ -40,6 +45,39 @@ class SettingsStore {
 			// Set initial theme attribute
 			document.documentElement.setAttribute('data-theme', this.theme);
 			document.documentElement.classList.toggle('eink-mode', this.einkMode);
+		}
+	}
+
+	/** Persist session for WebView authFetch and native ShareActivity. */
+	async setNativeSession(session: string): Promise<void> {
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('native_session', session);
+		}
+		await this.mirrorSessionToPreferences(session);
+	}
+
+	async clearNativeSession(): Promise<void> {
+		if (typeof window !== 'undefined') {
+			localStorage.removeItem('native_session');
+		}
+		try {
+			const { Capacitor } = await import('@capacitor/core');
+			if (!Capacitor.isNativePlatform()) return;
+			const { Preferences } = await import('@capacitor/preferences');
+			await Preferences.remove({ key: 'native_session' });
+		} catch (err) {
+			console.error('Failed to clear native session prefs', err);
+		}
+	}
+
+	private async mirrorSessionToPreferences(session: string): Promise<void> {
+		try {
+			const { Capacitor } = await import('@capacitor/core');
+			if (!Capacitor.isNativePlatform()) return;
+			const { Preferences } = await import('@capacitor/preferences');
+			await Preferences.set({ key: 'native_session', value: session });
+		} catch (err) {
+			console.error('Failed to mirror session to preferences', err);
 		}
 	}
 

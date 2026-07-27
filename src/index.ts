@@ -182,7 +182,8 @@ app.post('/api/auth/device/:code/poll', async (c) => {
 	const session = await createSession(c.env.DB, result.user_id);
 	setCookie(c, 'SESSION_ID', session.id, { path: '/', secure: true, httpOnly: true, sameSite: 'Lax', maxAge: 60 * 60 * 24 * 30 });
 	await c.env.DB.prepare('DELETE FROM device_codes WHERE code = ?').bind(code).run();
-	return c.json({ success: true });
+	// Include session id so the Android app can mirror it into Preferences for ShareActivity.
+	return c.json({ success: true, session: session.id });
 });
 
 app.use('/api/*', requireAuth);

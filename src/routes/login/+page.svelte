@@ -41,6 +41,11 @@
 		try {
 			const res = await fetch(`/api/auth/device/${deviceCode}/poll`, { method: 'POST' });
 			if (res.status === 200) {
+				const data = (await res.json().catch(() => ({}))) as { session?: string };
+				if (data.session) {
+					const { settings } = await import('$lib/settings.svelte');
+					await settings.setNativeSession(data.session);
+				}
 				window.location.href = '/';
 				return;
 			}

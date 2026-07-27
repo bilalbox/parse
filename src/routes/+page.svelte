@@ -126,7 +126,7 @@
 	async function handleLogout(): Promise<void> {
 		try {
 			await settings.authFetch('/api/auth/logout', { method: 'POST' });
-			localStorage.removeItem('native_session');
+			await settings.clearNativeSession();
 			goto('/login');
 		} catch (err) {
 			toast.show('Logout failed', 'error');
