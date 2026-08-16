@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { toast } from '$lib/toast.svelte';
 	import { page } from '$app/state';
+	import { registerBackOverlay } from '$lib/android-back';
 
 	let isNative = $state(false);
 	let loginMode = $state<'google' | 'device'>('google');
@@ -35,6 +36,14 @@
 			pollingTimeout = null;
 		}
 	}
+
+	$effect(() => {
+		if (loginMode !== 'device') return;
+		return registerBackOverlay(() => {
+			stopDeviceLogin();
+			return true;
+		});
+	});
 
 	async function pollDeviceLogin() {
 		if (!deviceCode || loginMode !== 'device') return;

@@ -1,11 +1,20 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
+	import { registerBackOverlay } from '$lib/android-back';
 
 	let { src, show, onClose } = $props<{
 		src: string;
 		show: boolean;
 		onClose: () => void;
 	}>();
+
+	$effect(() => {
+		if (!show) return;
+		return registerBackOverlay(() => {
+			onClose();
+			return true;
+		});
+	});
 </script>
 
 {#if show}

@@ -6,6 +6,7 @@
 	import { Library } from '$lib/Library.svelte';
 	import { readMinutes, formatDate } from '$lib/format';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
+	import { registerBackOverlay } from '$lib/android-back';
 
 	const library = new Library();
 	
@@ -137,6 +138,17 @@
 		document.title = 'Parse | Edge Reading';
 		library.load();
 		settings.loadUser();
+		return registerBackOverlay(() => {
+			if (showSettingsModal) {
+				showSettingsModal = false;
+				return true;
+			}
+			if (showAddSheet) {
+				showAddSheet = false;
+				return true;
+			}
+			return false;
+		});
 	});
 
 	$effect(() => {

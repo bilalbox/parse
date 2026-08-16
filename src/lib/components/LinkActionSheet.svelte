@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { registerBackOverlay } from '$lib/android-back';
+
 	let {
 		url = '',
 		show = false,
@@ -10,6 +12,14 @@
 		onClose: () => void;
 		onSave: (url: string) => void;
 	}>();
+
+	$effect(() => {
+		if (!show) return;
+		return registerBackOverlay(() => {
+			onClose();
+			return true;
+		});
+	});
 </script>
 
 <div class="bottom-sheet {show ? 'active' : ''}">

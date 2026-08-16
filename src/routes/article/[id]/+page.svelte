@@ -93,7 +93,7 @@
 			}
 
 			toast.show(nextArchivedState ? 'Archived ✓' : 'Restored to library ✓');
-			goto('/');
+			goto('/', { replaceState: true });
 		} catch (err: any) {
 			toast.show(err.message || 'Failed to archive article', 'error');
 		}
@@ -111,7 +111,7 @@
 			}
 
 			toast.show('Deleted ✓');
-			goto('/');
+			goto('/', { replaceState: true });
 		} catch (err: any) {
 			toast.show(err.message || 'Failed to delete article', 'error');
 		}
@@ -295,7 +295,7 @@
 
 <main id="view-article" class="view active" bind:this={viewEl}>
 	<nav class="app-header reader-header">
-		<button onclick={() => goto('/')} class="icon-btn" title="Back to Library">←</button>
+		<button onclick={() => goto('/', { replaceState: true })} class="icon-btn" title="Back to Library">←</button>
 
 		{#if !loading && articleData}
 			<div class="reader-controls">

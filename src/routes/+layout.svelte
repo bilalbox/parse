@@ -1,13 +1,44 @@
 <script lang="ts">
 	import '../app.css';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { settings } from '$lib/settings.svelte';
 	import { tts } from '$lib/tts.svelte';
 	import { toast } from '$lib/toast.svelte';
+	import { EXIT_CONFIRM_MS, createAndroidBackHandler } from '$lib/android-back';
 	import { fly, fade } from 'svelte/transition';
 
 	// Svelte 5 layout uses the children prop
 	let { children } = $props();
+
+	onMount(() => {
+		let cancelled = false;
+		let removeListener: (() => void) | undefined;
+
+		void import('@capacitor/core').then(async ({ Capacitor }) => {
+			if (cancelled || !Capacitor.isNativePlatform()) return;
+			const { App } = await import('@capacitor/app');
+			const handleBack = createAndroidBackHandler({
+				goHome: () => goto('/', { replaceState: true }),
+				confirmExit: () => toast.show('Press back again to exit', 'info', EXIT_CONFIRM_MS),
+				exitApp: () => App.exitApp()
+			});
+			const listener = await App.addListener('backButton', () => {
+				handleBack(page.url.pathname);
+			});
+			if (cancelled) {
+				void listener.remove();
+				return;
+			}
+			removeListener = () => { void listener.remove(); };
+		});
+
+		return () => {
+			cancelled = true;
+			removeListener?.();
+		};
+	});
 </script>
 
 <div id="layout-root" style="width: 100%; height: 100%; position: relative;">

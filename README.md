@@ -12,7 +12,7 @@ live in [`docs/adr/`](docs/adr/).
 
 ## Prerequisites
 
-- **Node.js 22** (matches CI).
+- **Node.js 24** (Active LTS; matches CI).
 - **pnpm 11** is the canonical package manager. CI builds with `pnpm install`, so `pnpm-lock.yaml`
   is the source of truth — use `pnpm install`, not npm/yarn.
 - For Android: Android Studio (or a JDK 21 + Android SDK), used only for the native build.
