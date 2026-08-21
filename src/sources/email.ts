@@ -79,23 +79,30 @@ function normalizeImageSrc(src: string): string {
 	return (slash >= 0 ? noFragment.slice(slash + 1) : noFragment) || noFragment;
 }
 
-// Append a collapsible <details> section listing rescued items (images or
-// links) that Readability dropped, under the given class and heading.
+// Append a <details> section listing rescued items (images or links) that
+// Readability dropped, under the given class and heading. `open` starts the
+// section expanded — used for images, since a closed accordion of the
+// article's own photos reads to the user as "images are missing".
 function appendRescuedSection(
 	articleDoc: any,
 	className: string,
 	heading: string,
 	build: (section: any) => void,
+	open = false,
 ): void {
 	const section = articleDoc.createElement('details');
 	section.setAttribute('class', `${className} details-collapsible`);
+	if (open) section.setAttribute('open', '');
 	const summary = articleDoc.createElement('summary');
 	const strong = articleDoc.createElement('strong');
 	strong.textContent = heading;
 	summary.appendChild(strong);
 	section.appendChild(summary);
 	build(section);
-	(articleDoc.body || articleDoc.documentElement).appendChild(section);
+	// Not articleDoc.body: linkedom parses a bodyless fragment (Readability's
+	// output) by inserting an always-empty phantom <body>, so appending there
+	// buries the section ahead of the real content instead of after it.
+	articleDoc.documentElement.appendChild(section);
 }
 
 // The email ingest adapter. Wraps a PostalMime-parsed email and satisfies the
@@ -158,7 +165,7 @@ export function createEmailSource(email: any, messageId: string): Source {
 						p.appendChild(img);
 						section.appendChild(p);
 					}
-				});
+				}, true);
 			}
 
 			// Re-attach action buttons (confirm/verify links) Readability dropped,

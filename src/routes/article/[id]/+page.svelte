@@ -9,6 +9,7 @@
 	import ImageViewer from '$lib/components/ImageViewer.svelte';
 	import { sanitizeArticleHtml } from '$lib/sanitize-email';
 	import { readMinutes, formatDate } from '$lib/format';
+	import { openExternal } from '$lib/open-external';
 
 	// Svelte 5 States
 	let articleData = $state<any>(null);
@@ -342,8 +343,17 @@
 		{:else if articleData}
 			{@const payload = JSON.parse(articleData.content || '{}')}
 			<h1>{payload.title}</h1>
-			{#if articleData.url}
-				<a href={articleData.url} target="_blank" rel="noopener noreferrer" class="view-original-link">View original</a>
+			{#if articleData.url && /^https?:\/\//i.test(articleData.url)}
+				<a
+					href={articleData.url}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="view-original-link"
+					onclick={(e) => {
+						e.preventDefault();
+						void openExternal(articleData.url);
+					}}>View original</a
+				>
 			{/if}
 			<p style="color: var(--accent); margin-bottom: 2rem;">By {articleData.author || payload.byline || 'Unknown Author'}{#if formatDate(articleData.published)} · {formatDate(articleData.published)}{/if}{#if articleData.word_count} · {readMinutes(articleData.word_count)} min read{/if}</p>
 			

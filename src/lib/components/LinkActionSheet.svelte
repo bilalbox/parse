@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { registerBackOverlay } from '$lib/android-back';
+	import { openExternal } from '$lib/open-external';
 
 	let {
 		url = '',
@@ -41,13 +42,17 @@
 				onclick={() => onSave(url)}>
 				➕ Save to Parse
 			</button>
-			<a 
-				href={url} 
-				target="_blank" 
+			<a
+				href={url}
+				target="_blank"
 				rel="noopener noreferrer"
 				class="card-btn"
 				style="padding: 1rem; font-size: 1rem; text-align: left; text-decoration: none; display: block; border: 1px solid var(--border-glass);"
-				onclick={onClose}>
+				onclick={(e) => {
+					e.preventDefault();
+					void openExternal(url);
+					onClose();
+				}}>
 				🌐 Open in Browser
 			</a>
 		</div>

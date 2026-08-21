@@ -45,11 +45,10 @@ export async function createWebSource(url: string, browserBinding: Parameters<ty
 			const img = articleDoc.createElement('img');
 			img.setAttribute('src', featuredImageUrl);
 			fig.appendChild(img);
-			if (articleDoc.body && articleDoc.body.firstChild) {
-				articleDoc.body.insertBefore(fig, articleDoc.body.firstChild);
-			} else if (articleDoc.documentElement) {
-				articleDoc.documentElement.insertBefore(fig, articleDoc.documentElement.firstChild);
-			}
+			// Not articleDoc.body: linkedom parses a bodyless fragment (Readability's
+			// output) by inserting an always-empty phantom <body>, so it's never a
+			// useful insertion point here.
+			articleDoc.documentElement.insertBefore(fig, articleDoc.documentElement.firstChild);
 		},
 
 		// Readability's byline is often a mangled blob (author + date + tags run

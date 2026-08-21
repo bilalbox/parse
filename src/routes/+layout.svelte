@@ -7,6 +7,7 @@
 	import { tts } from '$lib/tts.svelte';
 	import { toast } from '$lib/toast.svelte';
 	import { EXIT_CONFIRM_MS, createAndroidBackHandler } from '$lib/android-back';
+	import { openExternal } from '$lib/open-external';
 	import { fly, fade } from 'svelte/transition';
 
 	// Svelte 5 layout uses the children prop
@@ -160,7 +161,16 @@
 			<div class="toast {toast.type === 'error' ? 'toast-error' : ''}" style="margin: 0;">
 				{#if toast.href}
 					<span style="margin-right: 0.5rem;">{toast.message}</span>
-					<a href={toast.href} class="toast-link" target="_blank" rel="noopener noreferrer">{toast.linkText}</a>
+					<a
+						href={toast.href}
+						class="toast-link"
+						target="_blank"
+						rel="noopener noreferrer"
+						onclick={(e) => {
+							e.preventDefault();
+							void openExternal(toast.href);
+						}}>{toast.linkText}</a
+					>
 					<button onclick={() => toast.dismiss()} style="background: transparent; border: none; color: inherit; font-size: 1.1rem; cursor: pointer; margin-left: 0.5rem; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;">×</button>
 				{:else}
 					{toast.message}
