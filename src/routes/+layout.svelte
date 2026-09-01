@@ -8,6 +8,7 @@
 	import { toast } from '$lib/toast.svelte';
 	import { EXIT_CONFIRM_MS, createAndroidBackHandler } from '$lib/android-back';
 	import { openExternal } from '$lib/open-external';
+	import Icon from '$lib/components/Icon.svelte';
 	import { fly, fade } from 'svelte/transition';
 
 	// Svelte 5 layout uses the children prop
@@ -54,11 +55,9 @@
 		</div>
 	{/key}
 
-	<!-- Sleek Glassmorphic Floating TTS Player Sheet -->
+	<!-- Floating narration player -->
 	{#if tts.visible}
 		<div id="tts-player" class="tts-player-panel active" transition:fly={{ y: 100, duration: 300 }}>
-			<div class="player-blur-bg"></div>
-			
 			<div 
 				class="player-progress-container" 
 				id="player-progress-area"
@@ -90,7 +89,7 @@
 						{#if tts.featuredImage}
 							<img src={tts.featuredImage} alt="Cover Art" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;" />
 						{:else}
-							<span class="player-art-icon">🎙️</span>
+							<span class="player-art-icon">{tts.articleTitle?.[0]?.toUpperCase() ?? '\u2014'}</span>
 						{/if}
 					</div>
 					<div class="player-metadata">
@@ -101,18 +100,24 @@
 					</div>
 				</div>
 
+				<!-- Three controls, not five: the old ⏪/⏩ pair called the same
+				     prevSentence/nextSentence handlers as ⏮/⏭ while claiming to skip
+				     15s. Sentence steps are the better unit for prose anyway — they
+				     land on a boundary instead of mid-word. -->
 				<div class="player-controls-group">
-					<button class="player-icon-btn" onclick={() => tts.prevSentence()} title="Previous Sentence">⏮</button>
-					<button class="player-icon-btn" onclick={() => tts.prevSentence()} title="Rewind 15s">⏪</button>
-					<button 
-						class="player-icon-btn player-play-btn" 
-						onclick={() => tts.togglePlay()} 
+					<button class="player-icon-btn" onclick={() => tts.prevSentence()} title="Previous sentence">
+						<Icon name="skip-back" />
+					</button>
+					<button
+						class="player-icon-btn player-play-btn"
+						onclick={() => tts.togglePlay()}
 						title={tts.isPlaying ? 'Pause' : 'Play'}
 					>
-						{tts.isPlaying ? '⏸' : '▶'}
+						<Icon name={tts.isPlaying ? 'pause' : 'play'} size={22} />
 					</button>
-					<button class="player-icon-btn" onclick={() => tts.nextSentence()} title="Forward 15s">⏩</button>
-					<button class="player-icon-btn" onclick={() => tts.nextSentence()} title="Next Sentence">⏭</button>
+					<button class="player-icon-btn" onclick={() => tts.nextSentence()} title="Next sentence">
+						<Icon name="skip-forward" />
+					</button>
 				</div>
 
 				<div class="player-extra">
@@ -144,12 +149,14 @@
 								<option value="">No voice installed</option>
 							{:else}
 								{#each tts.getUsableVoices() as voice (voice.name)}
-									<option value={voice.name}>🗣️ {voice.name} ({voice.lang})</option>
+									<option value={voice.name}>{voice.name} ({voice.lang})</option>
 								{/each}
 							{/if}
 						</select>
 					</div>
-					<button class="player-close-btn" onclick={() => tts.hidePlayer()} title="Close Player">×</button>
+					<button class="player-close-btn" onclick={() => tts.hidePlayer()} title="Close player">
+						<Icon name="close" size={18} />
+					</button>
 				</div>
 			</div>
 		</div>
@@ -171,7 +178,9 @@
 							void openExternal(toast.href);
 						}}>{toast.linkText}</a
 					>
-					<button onclick={() => toast.dismiss()} style="background: transparent; border: none; color: inherit; font-size: 1.1rem; cursor: pointer; margin-left: 0.5rem; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;">×</button>
+					<button class="toast-dismiss" onclick={() => toast.dismiss()} title="Dismiss">
+						<Icon name="close" size={16} />
+					</button>
 				{:else}
 					{toast.message}
 				{/if}

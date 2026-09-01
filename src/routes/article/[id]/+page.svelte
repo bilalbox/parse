@@ -421,7 +421,7 @@
 				{#if articleData.summary}
 					<div class="ai-summary-callout">
 						<div class="ai-summary-header">
-							<span class="ai-icon">✨</span>
+							<span class="ai-icon"><Icon name="sparkle" size={16} /></span>
 							<strong>AI Summary</strong>
 						</div>
 						<div class="summary-content">

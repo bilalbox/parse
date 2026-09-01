@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { registerBackOverlay } from '$lib/android-back';
 	import { openExternal } from '$lib/open-external';
+	import Icon from './Icon.svelte';
 
 	let {
 		url = '',
@@ -30,30 +31,27 @@
 	<div class="sheet-content">
 		<div class="sheet-header">
 			<h3>Link Options</h3>
-			<button class="icon-btn" onclick={onClose}>×</button>
+			<button class="icon-btn" onclick={onClose} title="Close"><Icon name="close" /></button>
 		</div>
-		<div class="link-url-preview" style="margin-bottom: 1rem; color: var(--text-secondary); word-break: break-all; font-size: 0.9rem;">
-			{url}
-		</div>
-		<div class="sheet-actions" style="display: flex; flex-direction: column; gap: 0.5rem;">
-			<button 
-				class="card-btn" 
-				style="padding: 1rem; font-size: 1rem; text-align: left; border: 1px solid var(--border-glass);"
-				onclick={() => onSave(url)}>
-				➕ Save to Parse
+		<p class="sheet-subject" style="word-break: break-all;">{url}</p>
+		<div class="sheet-actions">
+			<button class="sheet-action" onclick={() => onSave(url)}>
+				<Icon name="plus" />
+				<span>Save to Parse</span>
 			</button>
 			<a
 				href={url}
 				target="_blank"
 				rel="noopener noreferrer"
-				class="card-btn"
-				style="padding: 1rem; font-size: 1rem; text-align: left; text-decoration: none; display: block; border: 1px solid var(--border-glass);"
+				class="sheet-action"
 				onclick={(e) => {
 					e.preventDefault();
 					void openExternal(url);
 					onClose();
-				}}>
-				🌐 Open in Browser
+				}}
+			>
+				<Icon name="external" />
+				<span>Open in Browser</span>
 			</a>
 		</div>
 	</div>

@@ -7,12 +7,25 @@
 	import { readMinutes, formatDate } from '$lib/format';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 	import { registerBackOverlay } from '$lib/android-back';
+	import Icon from '$lib/components/Icon.svelte';
 
 	const library = new Library();
 	
 	// Modal and sheet states
 	let showAddSheet = $state(false);
 	let showSettingsModal = $state(false);
+	// The card whose overflow sheet is open, if any. Archive and Delete sat
+	// under the thumb on every card during scroll; one deliberate tap now
+	// stands between a scroll gesture and permanent loss.
+	let menuArticle = $state<any>(null);
+
+	$effect(() => {
+		if (!menuArticle) return;
+		return registerBackOverlay(() => {
+			menuArticle = null;
+			return true;
+		});
+	});
 	
 	// Form inputs
 	let urlToParse = $state('');
@@ -115,13 +128,16 @@
 		}
 	}
 
-	function saveSettings(): void {
+	/**
+	 * Settings has no staged state to commit: both toggles persist the moment
+	 * they change. The modal previously offered ×, Cancel and Save Changes as
+	 * three routes to the same outcome, one of which claimed to save and one to
+	 * cancel. A single Done, and a reload to pick up anything the toggles
+	 * changed about the library.
+	 */
+	function closeSettings(): void {
 		showSettingsModal = false;
 		library.load();
-	}
-
-	function cancelSettings(): void {
-		showSettingsModal = false;
 	}
 
 	async function handleLogout(): Promise<void> {
@@ -165,10 +181,16 @@
 			{#if !settings.isOnline}
 				<span class="settings-help" style="color: var(--error); margin-right: 0.5rem; font-weight: 500;">Offline</span>
 			{/if}
-			<button class="icon-btn" id="add-btn" onclick={() => showAddSheet = true} title="Add URL">+</button>
-			<button class="icon-btn" id="settings-btn" onclick={() => showSettingsModal = true} title="Settings">⚙</button>
+			<button class="icon-btn" id="add-btn" onclick={() => showAddSheet = true} title="Add URL">
+				<Icon name="plus" />
+			</button>
+			<button class="icon-btn" id="settings-btn" onclick={() => showSettingsModal = true} title="Settings">
+				<Icon name="settings" />
+			</button>
 			{#if !settings.einkMode}
-				<button class="theme-toggle icon-btn" id="theme-toggle" onclick={() => settings.toggleTheme()} title="Toggle Theme">◑</button>
+				<button class="theme-toggle icon-btn" id="theme-toggle" onclick={() => settings.toggleTheme()} title="Toggle Theme">
+					<Icon name="contrast" />
+				</button>
 			{/if}
 		</div>
 	</header>
@@ -205,39 +227,23 @@
 					{#each library.filteredList as article (article.id)}
 						<div class="article-card" onclick={() => goto(`/article/${article.id}`)} onkeydown={() => {}} role="button" tabindex="0">
 							<h3 class="card-title">{article.title}</h3>
-							<div class="card-meta">
-								<span class="author">{article.author || 'Unknown'}</span>
-								<span class="card-meta-right">
-									<span class="date">{formatDate(article.published) ?? formatDate(article.created_at)}</span>
-									{#if article.word_count}
-										<span class="read-time">· {readMinutes(article.word_count)} min read</span>
-									{/if}
-								</span>
-							</div>
-							<div class="card-actions">
-								{#if article.unsubscribe_link}
-									<button 
-										class="card-btn card-unsub" 
-										onclick={(e) => { e.stopPropagation(); runUnsubscribe(article.id); }} 
-										title="Unsubscribe from this newsletter"
-										disabled={!settings.isOnline}
-									>
-										Unsubscribe
-									</button>
-								{/if}
-								<button 
-									class="card-btn card-archive" 
-									onclick={(e) => { e.stopPropagation(); archiveArticle(article.id, library.filter !== 'archived'); }}
+							<div class="card-footer">
+								<div class="card-meta">
+									<span class="author">{article.author || 'Unknown'}</span>
+									<span class="card-meta-right">
+										<span class="date">{formatDate(article.published) ?? formatDate(article.created_at)}</span>
+										{#if article.word_count}
+											<span class="read-time">· {readMinutes(article.word_count)} min read</span>
+										{/if}
+									</span>
+								</div>
+								<button
+									class="icon-btn card-menu-btn"
+									onclick={(e) => { e.stopPropagation(); menuArticle = article; }}
 									disabled={!settings.isOnline}
+									title="Article actions"
 								>
-									{library.filter === 'archived' ? 'Unarchive' : 'Archive'}
-								</button>
-								<button 
-									class="card-btn card-delete" 
-									onclick={(e) => { e.stopPropagation(); deleteArticle(article.id); }}
-									disabled={!settings.isOnline}
-								>
-									Delete
+									<Icon name="more" />
 								</button>
 							</div>
 						</div>
@@ -259,7 +265,7 @@
 		<div class="sheet-content">
 			<div class="sheet-header">
 				<h3>New Article</h3>
-				<button id="close-sheet" class="icon-btn" onclick={() => showAddSheet = false}>✕</button>
+				<button id="close-sheet" class="icon-btn" onclick={() => showAddSheet = false} title="Close"><Icon name="close" /></button>
 			</div>
 			<form id="parse-form" class="parse-form" onsubmit={handleParse}>
 				<div class="input-group">
@@ -281,12 +287,48 @@
 {/if}
 
 <!-- Settings Modal -->
+<div class="bottom-sheet {menuArticle ? 'active' : ''}">
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="sheet-backdrop" onclick={() => (menuArticle = null)}></div>
+	<div class="sheet-content">
+		<div class="sheet-header">
+			<h3>Article</h3>
+			<button class="icon-btn" onclick={() => (menuArticle = null)} title="Close"><Icon name="close" /></button>
+		</div>
+		{#if menuArticle}
+			<p class="sheet-subject">{menuArticle.title}</p>
+			<div class="sheet-actions">
+				{#if menuArticle.unsubscribe_link}
+					<button class="sheet-action" disabled={!settings.isOnline}
+						onclick={() => { const a = menuArticle; menuArticle = null; runUnsubscribe(a.id); }}>
+						<Icon name="unsubscribe" />
+						<span>Unsubscribe</span>
+					</button>
+				{/if}
+				<button class="sheet-action" disabled={!settings.isOnline}
+					onclick={() => { const a = menuArticle; menuArticle = null; archiveArticle(a.id, library.filter !== 'archived'); }}>
+					<Icon name={library.filter === 'archived' ? 'unarchive' : 'archive'} />
+					<span>{library.filter === 'archived' ? 'Restore to library' : 'Archive'}</span>
+				</button>
+				<button class="sheet-action sheet-action-danger" disabled={!settings.isOnline}
+					onclick={() => { const a = menuArticle; menuArticle = null; deleteArticle(a.id); }}>
+					<Icon name="trash" />
+					<span>Delete</span>
+				</button>
+			</div>
+		{/if}
+	</div>
+</div>
+
 {#if showSettingsModal}
 	<div id="token-modal" class="modal-overlay">
 		<div class="modal-box">
 			<div class="modal-header">
 				<h2>Settings</h2>
-				<button id="settings-close-btn" class="modal-close-btn" onclick={cancelSettings} title="Close Settings">×</button>
+				<button id="settings-close-btn" class="modal-close-btn" onclick={closeSettings} title="Close Settings">
+					<Icon name="close" size={18} />
+				</button>
 			</div>
 			
 			{#if settings.user}
@@ -297,47 +339,33 @@
 			</div>
 
 			<div class="settings-group">
-				<label style="display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; cursor: pointer;">
-					Auto AI Summaries
-					<input type="checkbox" 
-						checked={settings.user.auto_summarize_emails !== 0} 
+				<label class="setting-toggle">
+					<span class="setting-label">Auto AI Summaries</span>
+					<input
+						type="checkbox"
+						class="switch"
+						checked={settings.user.auto_summarize_emails !== 0}
 						onchange={(e) => settings.updateUserSettings(e.currentTarget.checked)}
-						style="width: 1.25rem; height: 1.25rem; accent-color: var(--accent); cursor: pointer;"
 					/>
 				</label>
-				<p class="settings-help" style="margin-top: 0.25rem;">Automatically generate summaries for incoming newsletter emails.</p>
+				<p class="settings-help">Automatically generate summaries for incoming newsletter emails.</p>
 			</div>
 			{/if}
 
-			<div class="settings-group" style="margin-top: 1rem;">
-				<label style="display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; cursor: pointer;">
-					E-ink Mode
-					<input type="checkbox"
-						checked={settings.einkMode}
-						onchange={() => settings.toggleEinkMode()}
-						style="width: 1.25rem; height: 1.25rem; accent-color: var(--accent); cursor: pointer;"
-					/>
+			<div class="settings-group">
+				<label class="setting-toggle">
+					<span class="setting-label">E-ink Mode</span>
+					<input type="checkbox" class="switch" checked={settings.einkMode} onchange={() => settings.toggleEinkMode()} />
 				</label>
-				<p class="settings-help" style="margin-top: 0.25rem;">High contrast, no animations, page-turn buttons. For e-ink readers like the Supernote Manta.</p>
+				<p class="settings-help">High contrast, no animations, page-turn buttons. For e-ink readers like the Supernote Manta.</p>
 			</div>
-
-			<div class="settings-group" style="margin-top: 1rem;">
-				<button
-					id="logout-btn"
-					class="token-cancel-btn" 
-					style="width: 100%; border-color: var(--error); color: var(--error);" 
-					onclick={handleLogout}
-				>
-					Logout
-				</button>
-			</div>
-
-			<p class="settings-help" style="text-align: center; margin-top: 1rem;">Version {settings.appVersion}</p>
 
 			<div class="modal-footer">
-				<button id="token-cancel-btn" class="token-cancel-btn" onclick={cancelSettings}>Cancel</button>
-				<button id="token-save-btn" class="token-save-btn" onclick={saveSettings}>Save Changes</button>
+				<button id="logout-btn" class="token-cancel-btn logout-btn" onclick={handleLogout}>Logout</button>
+				<button id="token-save-btn" class="token-save-btn" onclick={closeSettings}>Done</button>
 			</div>
+
+			<p class="settings-version">Version {settings.appVersion}</p>
 		</div>
 	</div>
 {/if}
