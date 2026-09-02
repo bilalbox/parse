@@ -9,7 +9,11 @@
  * They ask here instead.
  */
 
-import type { ContentLang } from './segmentation';
+/**
+ * The languages Narration works in. Arabic is segmented but not narrated, and
+ * no Arabic voice exists on the target devices (ADR-0001, ADR-0005).
+ */
+export type ContentLang = 'ar' | 'en';
 
 /** Arabic script, which is how an Article's language is told from its text. */
 const ARABIC_PATTERN = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/;
@@ -44,15 +48,15 @@ function asString(value: unknown): string {
 export function parseArticleContent(stored: string | null | undefined): ArticleContent {
 	if (!stored) return EMPTY;
 
-	let payload: unknown;
+	let parsed: unknown;
 	try {
-		payload = JSON.parse(stored);
+		parsed = JSON.parse(stored);
 	} catch {
 		return EMPTY;
 	}
-	if (!payload || typeof payload !== 'object') return EMPTY;
+	if (!parsed || typeof parsed !== 'object') return EMPTY;
 
-	const fields = payload as Record<string, unknown>;
+	const fields = parsed as Record<string, unknown>;
 	const title = asString(fields.title);
 	const html = asString(fields.content);
 	const text = asString(fields.textContent);

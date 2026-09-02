@@ -12,7 +12,7 @@
  * place the dedupe and prefer-on-device rule is written.
  */
 
-import type { ContentLang } from './segmentation';
+import type { ContentLang } from './article-content';
 
 export interface Voice {
 	name: string;

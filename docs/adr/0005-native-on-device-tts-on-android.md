@@ -32,7 +32,8 @@ to keep awake. The web TTS path simply produces no audio on-device.
 
 Amended after implementation. "Two synthesis backends" is no longer a pair of
 branches through one class: `src/lib/speech.ts` declares the speak/stop/voices
-seam, `speech-web.ts` and `speech-native.ts` are the adapters, and
+seam (plus an optional session pair, which is where the Android background task
+went so that holding one stopped being a platform branch in the player), `speech-web.ts` and `speech-native.ts` are the adapters, and
 `speech-backend.ts` is the single place `Capacitor.isNativePlatform()` is asked.
 Speaking resolves `completed` or `interrupted` and rejects only on a real engine
 failure, so neither adapter re-derives intent from playback state. The decision

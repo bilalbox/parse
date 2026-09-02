@@ -1,4 +1,4 @@
-import type { ContentLang } from './segmentation';
+import type { ContentLang } from './article-content';
 
 class SettingsStore {
 	theme = $state('dark');

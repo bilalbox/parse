@@ -14,6 +14,7 @@
  * segmentation earlier to save paint time breaks sentence indices silently.
  */
 
+import type { ContentLang } from './article-content';
 import { RESCUED_SECTION_SELECTOR } from './rescue';
 
 /** The class the reader's stylesheet and click handler both look for. */
@@ -22,8 +23,7 @@ export const SENTENCE_CLASS = 'tts-sentence';
 /** Marks the sentence being spoken, so the reader can follow along. */
 export const ACTIVE_SENTENCE_CLASS = 'active-sentence';
 
-/** The languages narration segments for. Arabic is segmented but not narrated (ADR-0005). */
-export type ContentLang = 'ar' | 'en';
+export type { ContentLang };
 
 export interface Sentence {
 	text: string;

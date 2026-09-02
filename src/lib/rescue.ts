@@ -27,5 +27,5 @@ export const FEATURED_IMAGE_CLASS = 'featured-image-container';
  */
 export const RESCUED_SECTION_SELECTOR = `.${ACTION_LINKS_CLASS}, .${RESCUED_IMAGES_CLASS}`;
 
-/** Where the player looks for artwork to put on the lock screen. */
-export const FEATURED_IMAGE_SELECTOR = `.${FEATURED_IMAGE_CLASS} img, img`;
+/** The rescued featured image itself, which is the Article's artwork when there is one. */
+export const FEATURED_IMAGE_SELECTOR = `.${FEATURED_IMAGE_CLASS} img`;

@@ -1,5 +1,6 @@
 import { FEATURED_IMAGE_SELECTOR } from './rescue';
-import { ACTIVE_SENTENCE_CLASS, segmentContainer, type ContentLang, type Sentence } from './segmentation';
+import type { ContentLang } from './article-content';
+import { ACTIVE_SENTENCE_CLASS, segmentContainer, type Sentence } from './segmentation';
 import { settings } from './settings.svelte';
 import type { SpeakOutcome, SpeechBackend, Voice } from './speech';
 
@@ -143,8 +144,11 @@ export class NarrationPlayer {
 		this.articleTitle = article.title;
 		this.articleAuthor = article.author;
 
-		const img = container.querySelector(FEATURED_IMAGE_SELECTOR);
-		this.featuredImage = img?.getAttribute('src') || '';
+		// The rescued featured image if the Article has one, else whatever image
+		// leads it. Prefer the resolved `.src`: stored content points at
+		// `/media/<key>`, and the lock screen needs an absolute URL.
+		const img = container.querySelector(`${FEATURED_IMAGE_SELECTOR}, img`);
+		this.featuredImage = (img as HTMLImageElement | null)?.src || img?.getAttribute('src') || '';
 
 		// The language decides the segmenter locale and which voices are usable.
 		this.contentLang = article.lang;
