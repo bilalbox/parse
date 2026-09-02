@@ -234,9 +234,29 @@ class TTSManager {
 		return merged;
 	}
 
+	/** Undo a previous pass so re-preparing a container re-splits its text instead of its spans. */
+	private unwrapSentenceSpans(container: HTMLElement) {
+		// Splitting works off text-node offsets, so the shards left behind by the
+		// removed spans have to be merged back into whole runs. Only the blocks that
+		// held spans need it — normalizing the whole container would reach into
+		// Svelte-managed regions (the summary callout) for nothing.
+		const parents = new Set<Element>();
+		container.querySelectorAll('span.tts-sentence').forEach(span => {
+			const parent = span.parentElement;
+			if (parent) parents.add(parent);
+			span.replaceWith(...span.childNodes);
+		});
+		parents.forEach(parent => parent.normalize());
+	}
+
 	private prepareTtsContent(container: HTMLElement): Sentence[] {
 		const sentences: Sentence[] = [];
 		let sentenceCount = 0;
+
+		// The attachment that drives loadArticle re-runs on the same container —
+		// twice during the initial mount alone — so this may be a second pass over
+		// content the first pass already wrapped.
+		this.unwrapSentenceSpans(container);
 
 		const blockSelector = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, summary';
 		const skipSelector = '.parsed-action-links, .parsed-rescued-images';
@@ -245,14 +265,26 @@ class TTSManager {
 			.filter(el => !el.closest(skipSelector));
 
 		blocks.forEach(block => {
+			// A block's own text is only what no *nearer* block claims. Blocks nest
+			// (blockquote > p, li > ul > li), so without this a quote was segmented
+			// twice — once by the blockquote, once by its paragraph — and therefore
+			// queued twice and read aloud twice.
 			const textNodesInBlock: Text[] = [];
 			const walk = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
 			let node: Node | null;
 			while ((node = walk.nextNode())) {
+				if ((node as Text).parentElement?.closest(blockSelector) !== block) continue;
 				textNodesInBlock.push(node as Text);
 			}
 
-			const blockText = block.textContent || '';
+			// Must be the claimed nodes, not block.textContent: the offsets below
+			// index into this string.
+			const blockText = textNodesInBlock.map(n => n.data).join('');
+			// A container block (a blockquote wrapping paragraphs) is left holding
+			// only inter-tag whitespace; queueing that as a sentence would put a
+			// silent entry in the playback order.
+			if (!blockText.trim()) return;
+
 			const blockSentences = this.splitIntoSentences(blockText);
 			if (blockSentences.length === 0) return;
 
