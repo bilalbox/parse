@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { settings } from '$lib/settings.svelte';
 	import { tts } from '$lib/tts.svelte';
+	import { SENTENCE_CLASS } from '$lib/segmentation';
 	import { toast } from '$lib/toast.svelte';
 	import LinkActionSheet from '$lib/components/LinkActionSheet.svelte';
 	import ImageViewer from '$lib/components/ImageViewer.svelte';
@@ -417,7 +418,7 @@
 			
 			<div id="tts-content-wrapper" use:interceptInteractions {@attach ttsAttachment} onclick={(e) => {
 				const target = e.target as HTMLElement;
-				if (target.classList.contains('tts-sentence')) {
+				if (target.classList.contains(SENTENCE_CLASS)) {
 					const idx = parseInt(target.dataset.sentenceIndex || '');
 					if (!isNaN(idx)) {
 						tts.jumpToSentence(idx);

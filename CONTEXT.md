@@ -36,5 +36,9 @@ The single source of truth for how the offline Library is cached (ADR-0002): the
 _Avoid_: cache config, sw helpers
 
 **Narration**:
-Reading an Article aloud, sentence by sentence with the current sentence highlighted. Synthesized on-device using a voice installed for the Article's language — never a server-rendered audio stream. Two backends behind one shared segmentation pipeline (`src/lib/tts.svelte.ts`): the browser **Web Speech API** in the PWA, and the device's native TTS via `@capacitor-community/text-to-speech` on Android, where the WebView has no `speechSynthesis` engine (ADR-0005). Arabic Articles are not narrated (no client Arabic voice exists on the target devices); their play control is hidden.
+Reading an Article aloud, sentence by sentence with the current sentence highlighted. Synthesized on-device using a voice installed for the Article's language — never a server-rendered audio stream. Two backends behind one shared **Segmentation** pass: the browser **Web Speech API** in the PWA, and the device's native TTS via `@capacitor-community/text-to-speech` on Android, where the WebView has no `speechSynthesis` engine (ADR-0005). The player (`src/lib/tts.svelte.ts`) owns the queue, playback and highlighting. Arabic Articles are not narrated (no client Arabic voice exists on the target devices); their play control is hidden.
 _Avoid_: TTS, audio, playback
+
+**Segmentation**:
+Turning a mounted Article container into the sentence queue Narration reads, wrapping each sentence in a `.tts-sentence` span so highlighting and click-to-jump can find it. One idempotent entry point (`segmentContainer` in `src/lib/segmentation.ts`) takes the container and the content language; re-running it on an already-segmented container is safe, because the reader's attachment fires twice on a single mount. It builds nodes from the container's own document rather than a global one, which is what makes it callable without a browser. Must run *after* the tidy pass — tidying deletes blocks, and deleting a block after segmentation leaves holes in the sentence index.
+_Avoid_: sentence splitting, chunking, tokenization

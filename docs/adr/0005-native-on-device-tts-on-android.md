@@ -15,10 +15,11 @@ to keep awake. The web TTS path simply produces no audio on-device.
 
 ## Decision & consequences
 
-- **Two synthesis backends, one segmentation pipeline.** Sentence splitting,
-  highlighting, and progress stay in shared client code (`src/lib/tts.svelte.ts`).
-  `Capacitor.isNativePlatform()` selects the backend: Web Speech in browsers, the
-  native plugin (`TextToSpeech.speak`/`getSupportedVoices`/`stop`) on Android.
+- **Two synthesis backends, one segmentation pipeline.** Sentence splitting lives
+  in `src/lib/segmentation.ts`; highlighting and progress stay with the player
+  (`src/lib/tts.svelte.ts`). `Capacitor.isNativePlatform()` selects the backend:
+  Web Speech in browsers, the native plugin
+  (`TextToSpeech.speak`/`getSupportedVoices`/`stop`) on Android.
 - **Still on-device and offline.** The native engine uses voices installed on the
   device — no server-rendered audio stream, consistent with ADR-0001's drivers. The
   per-sentence loop and "local voices only" stance carry over.
