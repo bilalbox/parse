@@ -1,3 +1,5 @@
+import type { ContentLang } from './segmentation';
+
 class SettingsStore {
 	theme = $state('dark');
 	fontSize = $state(1.15);
@@ -5,6 +7,10 @@ class SettingsStore {
 	isOnline = $state(true);
 	einkMode = $state(false);
 	confirmDeletes = $state(true);
+	narrationSpeed = $state(1.0);
+	// A voice preference is per content language, not per engine: the same
+	// listener wants a different voice for an English and an Arabic Article.
+	narrationVoices = $state<Record<ContentLang, string>>({ en: '', ar: '' });
 	user = $state<any>(null);
 	appVersion = $state(import.meta.env.VITE_APP_VERSION || 'dev');
 
@@ -41,6 +47,14 @@ class SettingsStore {
 			// Default-on, so read it as "not explicitly turned off": the `=== 'true'`
 			// shape used above would silently unset it for every existing install.
 			this.confirmDeletes = localStorage.getItem('parse_confirm_deletes') !== 'false';
+			// Keys predate this store; they keep their names so no install loses a
+			// saved voice or listening pace.
+			const storedSpeed = localStorage.getItem('tts_speed');
+			if (storedSpeed) this.narrationSpeed = parseFloat(storedSpeed);
+			this.narrationVoices = {
+				en: localStorage.getItem('tts_voice_en') || '',
+				ar: localStorage.getItem('tts_voice_ar') || ''
+			};
 
 			// Add event listeners for online status
 			window.addEventListener('online', () => { this.isOnline = true; });
@@ -94,6 +108,25 @@ class SettingsStore {
 	}
 
 
+
+	/** The voice saved for a content language, or '' if the listener has not chosen one. */
+	narrationVoice(lang: ContentLang): string {
+		return this.narrationVoices[lang] || '';
+	}
+
+	setNarrationVoice(lang: ContentLang, voiceName: string): void {
+		this.narrationVoices = { ...this.narrationVoices, [lang]: voiceName };
+		if (typeof window !== 'undefined') {
+			localStorage.setItem(`tts_voice_${lang}`, voiceName);
+		}
+	}
+
+	setNarrationSpeed(speed: number): void {
+		this.narrationSpeed = speed;
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('tts_speed', speed.toString());
+		}
+	}
 
 	toggleConfirmDeletes(): void {
 		this.confirmDeletes = !this.confirmDeletes;

@@ -62,12 +62,10 @@
 				class="player-progress-container" 
 				id="player-progress-area"
 				onclick={(e) => {
-					if (tts.sentences.length === 0) return;
+					// The scrubber knows how far along it was clicked; the player owns
+					// what that means for the queue.
 					const rect = e.currentTarget.getBoundingClientRect();
-					const clickX = e.clientX - rect.left;
-					const pct = clickX / rect.width;
-					const targetIdx = Math.floor(pct * tts.sentences.length);
-					tts.jumpToSentence(Math.max(0, Math.min(targetIdx, tts.sentences.length - 1)));
+					tts.seekToFraction((e.clientX - rect.left) / rect.width);
 				}}
 				onkeydown={() => {}}
 				role="slider"
@@ -79,7 +77,7 @@
 				<div 
 					class="player-progress-bar" 
 					id="player-progress" 
-					style="width: {tts.sentences.length > 0 ? (tts.currentIndex / tts.sentences.length) * 100 : 0}%"
+					style="width: {tts.progress * 100}%"
 				></div>
 			</div>
 
