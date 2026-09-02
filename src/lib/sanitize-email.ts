@@ -202,6 +202,9 @@ function normalizeHeading(text: string): string {
 	return text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+/** Below this, a shared prefix is coincidence rather than a restated masthead. */
+const MIN_TITLE_ECHO = 6;
+
 /**
  * Newsletters restate their own masthead as the first heading in the body,
  * directly under the `<h1>` the reader already renders. Scoped to the first
@@ -214,15 +217,30 @@ function dropDuplicateTitleHeading(root: Element, title: string): void {
 	const a = normalizeHeading(heading.textContent ?? '');
 	const b = normalizeHeading(title);
 	if (!a || !b) return;
-	if (a === b || a.includes(b) || b.includes(a)) heading.remove();
+
+	if (a === b) {
+		heading.remove();
+		return;
+	}
+
+	// A masthead is restated at the *start* of the heading ("TLDR Dev" →
+	// "TLDR Dev 2026-09-01"). Plain containment would delete a real section
+	// heading whose text happens to mention a short title — "Rust" inside "Why
+	// Rust Ownership Matters" — and silent content loss is the worse failure.
+	const shorter = a.length < b.length ? a : b;
+	if (shorter.length < MIN_TITLE_ECHO) return;
+	if (a.startsWith(b) || b.startsWith(a)) heading.remove();
 }
 
 /**
- * Sponsor logos ship with their white background baked into the pixels, which
- * punches a hole in the dark theme. Marking them lets CSS seat them on a
- * deliberate surface instead — inverting or blending would wreck brand colour.
+ * Newsletter sponsor logos ship with their white background baked into the
+ * pixels, which punches a hole in the dark theme. Marking them lets CSS seat
+ * them on a surface — inverting or blending would wreck brand colour.
+ *
+ * Email only. A web article's hero photo already fills its frame, and giving it
+ * an inset grey mat would read as a rendering fault rather than a choice.
  */
-function markStandaloneImages(root: Element): void {
+function markEmailImages(root: Element): void {
 	for (const img of Array.from(root.querySelectorAll('img'))) {
 		img.classList.add('article-image');
 	}
@@ -233,7 +251,14 @@ function markStandaloneImages(root: Element): void {
  * so it can be exercised against any DOM implementation — the sanitize wrapper
  * needs a browser `DOMParser`, this needs only nodes.
  */
-export function tidyArticleDom(root: Element, title = ''): void {
+export interface TidyOptions {
+	/** Article title, used to drop a heading that merely restates it. */
+	title?: string;
+	/** Ingest path. Only email bodies get their images framed. */
+	sourceType?: string;
+}
+
+export function tidyArticleDom(root: Element, { title = '', sourceType }: TidyOptions = {}): void {
 	stripOverflowAttributes(root);
 	unwrapOrphanedTableParts(root);
 	unwrapInertSpans(root);
@@ -244,10 +269,10 @@ export function tidyArticleDom(root: Element, title = ''): void {
 	collapseLineBreaks(root);
 	dropEmptyBlocks(root);
 	if (title) dropDuplicateTitleHeading(root, title);
-	markStandaloneImages(root);
+	if (sourceType === 'email') markEmailImages(root);
 }
 
-export function sanitizeArticleHtml(html: string, title = ''): string {
+export function sanitizeArticleHtml(html: string, options: TidyOptions = {}): string {
 	if (!html) return '';
 
 	registerSanitizeHooks();
@@ -259,6 +284,6 @@ export function sanitizeArticleHtml(html: string, title = ''): string {
 	const root = doc.getElementById('sanitize-root');
 	if (!root) return clean;
 
-	tidyArticleDom(root, title);
+	tidyArticleDom(root, options);
 	return root.innerHTML;
 }

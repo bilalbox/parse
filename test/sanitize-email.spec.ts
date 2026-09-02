@@ -3,10 +3,10 @@ import { parseHTML } from 'linkedom';
 import { tidyArticleDom } from '../src/lib/sanitize-email';
 
 /** Parse a fragment, tidy it, and hand back the root for assertions. */
-function tidy(html: string, title = ''): Element {
+function tidy(html: string, title = '', sourceType = 'email'): Element {
 	const { document } = parseHTML(`<div id="root">${html}</div>`);
 	const root = document.getElementById('root') as unknown as Element;
-	tidyArticleDom(root, title);
+	tidyArticleDom(root, { title, sourceType });
 	return root;
 }
 
@@ -91,10 +91,35 @@ describe('tidyArticleDom', () => {
 		expect(root.querySelectorAll('h2')).toHaveLength(1);
 	});
 
-	it('marks images so CSS can seat a white sponsor logo on a surface', () => {
-		const root = tidy('<p><img src="/media/logo.png" alt="OpenRouter"></p>');
+	it('keeps a heading that merely mentions a short title', () => {
+		// Plain containment would delete this: "rust" is inside "why rust
+		// ownership matters". Silent content loss is the worse failure.
+		const root = tidy('<h2>Why Rust Ownership Matters</h2>', 'Rust');
+
+		expect(root.querySelectorAll('h2')).toHaveLength(1);
+	});
+
+	it('keeps a heading that shares a title word without restating the masthead', () => {
+		const root = tidy('<h2>Notes on Distributed Systems</h2>', 'Distributed Systems');
+
+		expect(root.querySelectorAll('h2')).toHaveLength(1);
+	});
+
+	it('marks email images so CSS can seat a white sponsor logo on a surface', () => {
+		const root = tidy('<p><img src="/media/logo.png" alt="OpenRouter"></p>', '', 'email');
 
 		expect(root.querySelector('img')?.classList.contains('article-image')).toBe(true);
+	});
+
+	it('leaves a web article hero photo unframed', () => {
+		// A hero already fills its frame; an inset grey mat would read as a bug.
+		const root = tidy(
+			'<figure class="featured-image-container"><img src="/media/hero.jpg"></figure>',
+			'',
+			'web'
+		);
+
+		expect(root.querySelector('img')?.classList.contains('article-image')).toBe(false);
 	});
 
 	it('preserves every link and all readable text', () => {

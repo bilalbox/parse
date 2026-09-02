@@ -38,6 +38,12 @@
 
 	function onReaderScroll(): void {
 		if (!viewEl) return;
+		// E-ink navigates by the ‹ › page-turn buttons, which live in this header
+		// and scroll the view programmatically — auto-hiding would remove the
+		// control the reader just tapped, with no scroll gesture left to bring it
+		// back. Chrome sliding in and out also ghosts badly on a slow panel.
+		if (settings.einkMode) return;
+
 		const top = viewEl.scrollTop;
 		const delta = top - lastScrollTop;
 		lastScrollTop = top;
@@ -431,7 +437,10 @@
 				{/if}
 				
 				<div class="article-body">
-					{@html sanitizeArticleHtml(rewriteHtmlContent(payload.content), payload.title)}
+					{@html sanitizeArticleHtml(rewriteHtmlContent(payload.content), {
+						title: payload.title,
+						sourceType: articleData.source_type
+					})}
 				</div>
 			</div>
 		{/if}
