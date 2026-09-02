@@ -1,5 +1,6 @@
 import { settings } from './settings.svelte';
 import { RUNTIME_CACHE, isRuntimeCacheable, mediaUrls } from './cache-convention';
+import { parseArticleContent } from './article-content';
 
 export type FilterState = 'active' | 'archived';
 
@@ -106,8 +107,7 @@ function defaultCacheAdapter(): CacheAdapter {
 							if (!res.ok) continue;
 						}
 						const data = (await res.clone().json()) as any;
-						const payload = JSON.parse(data.content);
-						const urls = mediaUrls(payload.content);
+						const urls = mediaUrls(parseArticleContent(data.content).html);
 						for (const m of urls) {
 							const finalMediaUrl = getRequestUrl(m);
 							keep.add(finalMediaUrl);

@@ -16,9 +16,9 @@ to keep awake. The web TTS path simply produces no audio on-device.
 ## Decision & consequences
 
 - **Two synthesis backends, one segmentation pipeline.** Sentence splitting lives
-  in `src/lib/segmentation.ts`; highlighting and progress stay with the player
-  (`src/lib/tts.svelte.ts`). `Capacitor.isNativePlatform()` selects the backend:
-  Web Speech in browsers, the native plugin
+  in `src/lib/segmentation.ts`; the queue, highlighting and progress stay with the
+  player (`src/lib/narration.svelte.ts`). `Capacitor.isNativePlatform()` selects
+  the backend: Web Speech in browsers, the native plugin
   (`TextToSpeech.speak`/`getSupportedVoices`/`stop`) on Android.
 - **Still on-device and offline.** The native engine uses voices installed on the
   device — no server-rendered audio stream, consistent with ADR-0001's drivers. The
@@ -27,6 +27,16 @@ to keep awake. The web TTS path simply produces no audio on-device.
   devices; the play control stays hidden for Arabic Articles (ADR-0001).
 - **No Foreground Service plugin.** Narration is foreground-only on Android, same as
   the PWA. Backgrounded/locked-screen narration is not supported.
+
+## The seam this specifies now exists
+
+Amended after implementation. "Two synthesis backends" is no longer a pair of
+branches through one class: `src/lib/speech.ts` declares the speak/stop/voices
+seam, `speech-web.ts` and `speech-native.ts` are the adapters, and
+`speech-backend.ts` is the single place `Capacitor.isNativePlatform()` is asked.
+Speaking resolves `completed` or `interrupted` and rejects only on a real engine
+failure, so neither adapter re-derives intent from playback state. The decision
+here is unchanged; only its expression in code is.
 
 ## Supersedes
 

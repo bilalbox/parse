@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mockArticle } from './mock-article';
 
 // A single link-dense paragraph: many small text nodes packed into one block.
-// Regression guard for prepareTtsContent() re-scanning blockText for every
+// Regression guard for segmentContainer() re-scanning a block's text for every
 // text node (O(text nodes * sentences)), which froze the UI on load.
 function linkDenseHtml(links: number): string {
 	let para = '<p>Sentence one starts here. ';
@@ -26,9 +26,9 @@ test('link-dense article loads without a multi-second freeze', async ({ page }) 
 });
 
 test('tts-sentence rewrite is deferred to a later frame, not done synchronously on mount', async ({ page }) => {
-	// Prove loadArticle() actually defers via requestAnimationFrame rather than
-	// racing wall-clock timing against it (the algorithmic fix alone already
-	// makes even large articles fast enough that a timing-based race is flaky).
+	// Prove the player actually defers segmentation via requestAnimationFrame,
+	// rather than racing wall-clock timing against it (the algorithmic fix alone
+	// already makes even large articles fast enough that a timing race is flaky).
 	await page.addInitScript(() => {
 		(window as unknown as { __rafScheduled: boolean }).__rafScheduled = false;
 		const orig = window.requestAnimationFrame.bind(window);

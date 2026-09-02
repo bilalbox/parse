@@ -80,7 +80,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 async function loadedPlayer(fake = fakeBackend(), html = ARTICLE) {
 	const player = new NarrationPlayer(fake.backend, { schedule: (task) => task() });
 	await flush();
-	player.loadArticle('article-1', 'A Title', 'An Author', container(html));
+	player.loadArticle({ id: 'article-1', title: 'A Title', author: 'An Author', lang: 'en' }, container(html));
 	return player;
 }
 
@@ -340,9 +340,9 @@ describe('NarrationPlayer', () => {
 			const player = new NarrationPlayer(fake.backend, { schedule: (task) => task() });
 			await flush();
 
-			player.loadArticle('ar-1', 'عنوان', 'كاتب', container('<p>الجملة الأولى.</p>'));
+			player.loadArticle({ id: 'ar-1', title: 'عنوان', author: 'كاتب', lang: 'ar' }, container('<p>الجملة الأولى.</p>'));
 
-			expect(player.isArabicContent).toBe(true);
+			expect(player.contentLang).toBe('ar');
 			expect(player.hasVoice).toBe(false);
 			expect(player.selectedVoice).toBe('');
 		});

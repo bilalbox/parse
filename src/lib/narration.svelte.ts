@@ -1,11 +1,18 @@
-import { segmentContainer, type ContentLang, type Sentence } from './segmentation';
+import { FEATURED_IMAGE_SELECTOR } from './rescue';
+import { ACTIVE_SENTENCE_CLASS, segmentContainer, type ContentLang, type Sentence } from './segmentation';
 import { settings } from './settings.svelte';
 import type { SpeakOutcome, SpeechBackend, Voice } from './speech';
 
 export type { Sentence };
 
-/** Arabic script, used to decide an Article's content language from its text. */
-const ARABIC_PATTERN = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/;
+/** Everything the player needs to know about an Article to narrate it. */
+export interface NarratedArticle {
+	id: string;
+	title: string;
+	author: string;
+	/** Decided by the Article content envelope, before the content mounts. */
+	lang: ContentLang;
+}
 
 export interface NarrationOptions {
 	/**
@@ -42,7 +49,7 @@ export class NarrationPlayer {
 	articleTitle = $state('');
 	articleAuthor = $state('');
 	featuredImage = $state('');
-	isArabicContent = $state(false);
+	contentLang = $state<ContentLang>('en');
 	visible = $state(false);
 
 	private allVoices = $state<Voice[]>([]);
@@ -66,10 +73,6 @@ export class NarrationPlayer {
 	/** The listening pace, held by the settings store like every other preference. */
 	get selectedSpeed(): number {
 		return settings.narrationSpeed;
-	}
-
-	private get contentLang(): ContentLang {
-		return this.isArabicContent ? 'ar' : 'en';
 	}
 
 	private async refreshVoices(): Promise<void> {
@@ -130,34 +133,33 @@ export class NarrationPlayer {
 		if (this.isPlaying) this.playSentence(this.currentIndex);
 	}
 
-	loadArticle(articleId: string, title: string, author: string, container: Element): void {
+	loadArticle(article: NarratedArticle, container: Element): void {
 		// Stop current playback if loading a new article
-		if (this.articleId !== articleId) {
+		if (this.articleId !== article.id) {
 			this.stop();
 		}
 
-		this.articleId = articleId;
-		this.articleTitle = title;
-		this.articleAuthor = author;
+		this.articleId = article.id;
+		this.articleTitle = article.title;
+		this.articleAuthor = article.author;
 
-		const img = container.querySelector('.featured-image-container img, img');
+		const img = container.querySelector(FEATURED_IMAGE_SELECTOR);
 		this.featuredImage = img?.getAttribute('src') || '';
 
-		// Detect if content is Arabic, then pick a voice that matches the language.
-		this.isArabicContent =
-			ARABIC_PATTERN.test(container.textContent || '') || ARABIC_PATTERN.test(title || '');
+		// The language decides the segmenter locale and which voices are usable.
+		this.contentLang = article.lang;
 		this.resolveVoice();
 		this.updateMediaSession();
 
 		// Only playback and click-to-jump need the sentence spans, not display, so
 		// the rewrite waits until after the Article has painted.
 		this.schedule(() => {
-			if (this.articleId !== articleId) return;
+			if (this.articleId !== article.id) return;
 
 			this.sentences = segmentContainer(container, this.contentLang);
 
 			// If we're already playing this article, re-highlight and restore progress
-			if (this.isPlaying && this.articleId === articleId) {
+			if (this.isPlaying && this.articleId === article.id) {
 				this.highlightSentence(this.currentIndex);
 			} else {
 				this.currentIndex = 0;
@@ -278,13 +280,13 @@ export class NarrationPlayer {
 
 	clearHighlight(): void {
 		this.sentences[this.currentIndex]?.elements.forEach((el) => {
-			el.classList.remove('active-sentence');
+			el.classList.remove(ACTIVE_SENTENCE_CLASS);
 		});
 	}
 
 	highlightSentence(index: number): void {
 		this.sentences[index]?.elements.forEach((el) => {
-			el.classList.add('active-sentence');
+			el.classList.add(ACTIVE_SENTENCE_CLASS);
 		});
 	}
 

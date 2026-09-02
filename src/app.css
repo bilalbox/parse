@@ -853,6 +853,8 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 0.95em;
 }
 
+/* .parsed-action-links is the Rescue contract (src/lib/rescue.ts); CSS cannot
+   import it, so test/rescue-contract.spec.ts guards this reference. */
 .reader-content .parsed-action-links a {
     display: inline-block;
     padding: 0.6rem 1.2rem;
@@ -1386,6 +1388,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── Sentence level text highlighting ─────────────────────────────────────────── */
+/* .tts-sentence and .active-sentence are written by src/lib/segmentation.ts and
+   the narration player; test/rescue-contract.spec.ts guards these references. */
 .tts-sentence {
     position: relative;
     transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease;

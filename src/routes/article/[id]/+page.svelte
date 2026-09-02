@@ -5,6 +5,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { tts } from '$lib/tts.svelte';
 	import { SENTENCE_CLASS } from '$lib/segmentation';
+	import { parseArticleContent } from '$lib/article-content';
 	import { toast } from '$lib/toast.svelte';
 	import LinkActionSheet from '$lib/components/LinkActionSheet.svelte';
 	import ImageViewer from '$lib/components/ImageViewer.svelte';
@@ -72,6 +73,11 @@
 	}
 
 	const id = $derived(page.params.id);
+	// The stored content is parsed once, here. The language it yields decides
+	// whether narration is offered at all — settled before the body mounts, so
+	// the play control never appears and then vanishes.
+	const content = $derived(parseArticleContent(articleData?.content));
+	const canNarrate = $derived(content.lang !== 'ar');
 
 	async function loadArticle(articleId: string): Promise<void> {
 		loading = true;
@@ -86,10 +92,8 @@
 				throw new Error('Article not found');
 			}
 			articleData = (await res.json()) as any;
-			
-			// Update page title
-			const payload = JSON.parse(articleData.content || '{}');
-			document.title = `${payload.title} | Parse`;
+
+			document.title = `${parseArticleContent(articleData.content).title} | Parse`;
 		} catch (err: any) {
 			toast.show(err.message || 'Failed to load article', 'error');
 		} finally {
@@ -311,14 +315,17 @@
 		return html;
 	}
 
-	// Reactively bind article content to global TTS engine once loaded and mounted via Svelte 5 attachment
+	// Reactively bind article content to the narration player once loaded and
+	// mounted, via a Svelte 5 attachment.
 	function ttsAttachment(element: HTMLElement): void {
 		if (!articleData) return;
-		const payload = JSON.parse(articleData.content || '{}');
 		tts.loadArticle(
-			articleData.id,
-			payload.title || articleData.title,
-			articleData.author || payload.byline,
+			{
+				id: articleData.id,
+				title: content.title || articleData.title,
+				author: articleData.author || content.byline,
+				lang: content.lang
+			},
 			element
 		);
 	}
@@ -346,7 +353,7 @@
 					<button class="icon-btn" onclick={() => turnPage(1)} title="Next Page">
 						<Icon name="chevron-right" />
 					</button>
-				{:else}
+				{:else if canNarrate}
 					<button
 						class="icon-btn"
 						onclick={() => tts.togglePlay()}
@@ -387,12 +394,12 @@
 	<div
 		id="reader-content"
 		class="reader-content"
-		class:rtl-content={tts.isArabicContent}
+		class:rtl-content={content.lang === 'ar'}
 		class:typography-sans={settings.fontFamily === 'sans'}
 		class:typography-serif={settings.fontFamily === 'serif'}
 		class:typography-amiri={settings.fontFamily === 'amiri'}
 		class:typography-cairo={settings.fontFamily === 'cairo'}
-		dir={tts.isArabicContent ? 'rtl' : 'ltr'}
+		dir={content.lang === 'ar' ? 'rtl' : 'ltr'}
 		style:font-size="{settings.fontSize}rem"
 	>
 		{#if loading}
@@ -400,8 +407,7 @@
 				<div class="spinner large"></div>
 			</div>
 		{:else if articleData}
-			{@const payload = JSON.parse(articleData.content || '{}')}
-			<h1>{payload.title}</h1>
+			<h1>{content.title}</h1>
 			{#if articleData.url && /^https?:\/\//i.test(articleData.url)}
 				<a
 					href={articleData.url}
@@ -414,7 +420,7 @@
 					}}>View original</a
 				>
 			{/if}
-			<p style="color: var(--accent); margin-bottom: 2rem;">By {articleData.author || payload.byline || 'Unknown Author'}{#if formatDate(articleData.published)} · {formatDate(articleData.published)}{/if}{#if articleData.word_count} · {readMinutes(articleData.word_count)} min read{/if}</p>
+			<p style="color: var(--accent); margin-bottom: 2rem;">By {articleData.author || content.byline || 'Unknown Author'}{#if formatDate(articleData.published)} · {formatDate(articleData.published)}{/if}{#if articleData.word_count} · {readMinutes(articleData.word_count)} min read{/if}</p>
 			
 			<div id="tts-content-wrapper" use:interceptInteractions {@attach ttsAttachment} onclick={(e) => {
 				const target = e.target as HTMLElement;
@@ -438,8 +444,8 @@
 				{/if}
 				
 				<div class="article-body">
-					{@html sanitizeArticleHtml(rewriteHtmlContent(payload.content), {
-						title: payload.title,
+					{@html sanitizeArticleHtml(rewriteHtmlContent(content.html), {
+						title: content.title,
 						sourceType: articleData.source_type
 					})}
 				</div>

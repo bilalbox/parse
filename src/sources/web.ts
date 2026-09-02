@@ -1,6 +1,7 @@
 import puppeteer from '@cloudflare/puppeteer';
 import Defuddle from 'defuddle';
 import { type Source, extractFeaturedImage } from '../extract';
+import { FEATURED_IMAGE_CLASS } from '../lib/rescue';
 
 // The web ingest adapter. Renders the page with Puppeteer up front (the one
 // untestable step, kept thin and isolated), then satisfies the Source seam:
@@ -41,7 +42,7 @@ export async function createWebSource(url: string, browserBinding: Parameters<ty
 			if (hasFeatured) return;
 
 			const fig = articleDoc.createElement('figure');
-			fig.setAttribute('class', 'featured-image-container');
+			fig.setAttribute('class', FEATURED_IMAGE_CLASS);
 			const img = articleDoc.createElement('img');
 			img.setAttribute('src', featuredImageUrl);
 			fig.appendChild(img);

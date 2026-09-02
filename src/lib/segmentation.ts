@@ -14,8 +14,13 @@
  * segmentation earlier to save paint time breaks sentence indices silently.
  */
 
+import { RESCUED_SECTION_SELECTOR } from './rescue';
+
 /** The class the reader's stylesheet and click handler both look for. */
 export const SENTENCE_CLASS = 'tts-sentence';
+
+/** Marks the sentence being spoken, so the reader can follow along. */
+export const ACTIVE_SENTENCE_CLASS = 'active-sentence';
 
 /** The languages narration segments for. Arabic is segmented but not narrated (ADR-0005). */
 export type ContentLang = 'ar' | 'en';
@@ -28,9 +33,6 @@ export interface Sentence {
 
 /** Blocks own their own text; anything outside one is not narrated. */
 const BLOCK_SELECTOR = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, summary';
-
-/** Rescued sections are lists of URLs — skipped rather than read aloud. */
-const SKIP_SELECTOR = '.parsed-action-links, .parsed-rescued-images';
 
 // `NodeFilter` is not a global in every runtime this module runs in (the test
 // pool exposes it only as a package export), so use its numeric value directly.
@@ -138,7 +140,7 @@ export function segmentContainer(container: Element, lang: ContentLang): Sentenc
 	unwrapSentenceSpans(container);
 
 	const blocks = Array.from(container.querySelectorAll(BLOCK_SELECTOR)).filter(
-		(el) => !el.closest(SKIP_SELECTOR)
+		(el) => !el.closest(RESCUED_SECTION_SELECTOR)
 	);
 
 	for (const block of blocks) {

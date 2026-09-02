@@ -1,5 +1,6 @@
 import { parseHTML } from 'linkedom';
 import type { Source } from '../extract';
+import { ACTION_LINKS_CLASS, RESCUED_IMAGES_CLASS } from '../lib/rescue';
 
 type EmailHeader = { key: string; value: string };
 
@@ -157,7 +158,7 @@ export function createEmailSource(email: any, messageId: string): Source {
 			);
 			const missingImages = [...originalImageSrcs].filter((src) => !survivingImgSrcs.has(normalizeImageSrc(src)));
 			if (missingImages.length) {
-				appendRescuedSection(articleDoc, 'parsed-rescued-images', 'Images from this email', (section) => {
+				appendRescuedSection(articleDoc, RESCUED_IMAGES_CLASS, 'Images from this email', (section) => {
 					for (const src of missingImages) {
 						const p = articleDoc.createElement('p');
 						const img = articleDoc.createElement('img');
@@ -176,7 +177,7 @@ export function createEmailSource(email: any, messageId: string): Source {
 			);
 			const missing = actionLinks.filter((l) => !survivingHrefs.has(l.href));
 			if (missing.length) {
-				appendRescuedSection(articleDoc, 'parsed-action-links', 'Links from this email', (section) => {
+				appendRescuedSection(articleDoc, ACTION_LINKS_CLASS, 'Links from this email', (section) => {
 					for (const { href, text } of missing) {
 						const p = articleDoc.createElement('p');
 						const a = articleDoc.createElement('a');
