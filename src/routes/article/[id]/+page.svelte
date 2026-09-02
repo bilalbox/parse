@@ -145,7 +145,7 @@
 
 	async function deleteArticle(): Promise<void> {
 		if (!articleData) return;
-		if (!confirm('Delete this article permanently? This also removes its saved images and cannot be undone.')) return;
+		if (!settings.confirmDelete()) return;
 
 		try {
 			const res = await settings.authFetch(`/api/articles/${id}`, { method: 'DELETE' });

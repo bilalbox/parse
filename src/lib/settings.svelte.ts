@@ -4,6 +4,7 @@ class SettingsStore {
 	fontFamily = $state('sans'); // 'sans' | 'serif' | 'amiri' | 'cairo'
 	isOnline = $state(true);
 	einkMode = $state(false);
+	confirmDeletes = $state(true);
 	user = $state<any>(null);
 	appVersion = $state(import.meta.env.VITE_APP_VERSION || 'dev');
 
@@ -37,6 +38,9 @@ class SettingsStore {
 			this.fontFamily = localStorage.getItem('parse_font_family') || 'sans';
 			this.isOnline = navigator.onLine;
 			this.einkMode = localStorage.getItem('parse_eink_mode') === 'true';
+			// Default-on, so read it as "not explicitly turned off": the `=== 'true'`
+			// shape used above would silently unset it for every existing install.
+			this.confirmDeletes = localStorage.getItem('parse_confirm_deletes') !== 'false';
 
 			// Add event listeners for online status
 			window.addEventListener('online', () => { this.isOnline = true; });
@@ -90,6 +94,24 @@ class SettingsStore {
 	}
 
 
+
+	toggleConfirmDeletes(): void {
+		this.confirmDeletes = !this.confirmDeletes;
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('parse_confirm_deletes', String(this.confirmDeletes));
+		}
+	}
+
+	/**
+	 * The single gate every delete crosses — the library card and the reader both
+	 * ask here, so the setting cannot be honoured in one place and forgotten in
+	 * the other. Returns whether the caller should go ahead.
+	 */
+	confirmDelete(): boolean {
+		if (!this.confirmDeletes) return true;
+		if (typeof window === 'undefined') return false;
+		return window.confirm('Delete this article permanently? This also removes its saved images and cannot be undone.');
+	}
 
 	toggleTheme() {
 		const nextTheme = this.theme === 'dark' ? 'light' : 'dark';

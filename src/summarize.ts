@@ -10,7 +10,7 @@ import { createArticleStore } from './store';
 type SummarizeEnv = { AI: Ai; DB: D1Database };
 
 // The model that turns Article text into a Summary. One line to change.
-const SUMMARY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8-fast';
+const SUMMARY_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';
 
 // Workers AI input cap — large Articles are truncated, not rejected.
 const MAX_INPUT_CHARS = 15000;

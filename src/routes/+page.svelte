@@ -6,6 +6,7 @@
 	import { Library } from '$lib/Library.svelte';
 	import { readMinutes, formatDate } from '$lib/format';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
+	import SwipeableCard from '$lib/components/SwipeableCard.svelte';
 	import { registerBackOverlay } from '$lib/android-back';
 	import Icon from '$lib/components/Icon.svelte';
 
@@ -93,7 +94,7 @@
 			toast.show('Cannot delete while offline.', 'error');
 			return;
 		}
-		if (!confirm('Delete this article permanently? This also removes its saved images and cannot be undone.')) return;
+		if (!settings.confirmDelete()) return;
 		try {
 			await library.delete(id);
 			toast.show('Deleted ✓');
@@ -225,6 +226,19 @@
 					</p>
 				{:else}
 					{#each library.filteredList as article (article.id)}
+						<!--
+							Swipe is the shortcut past the overflow menu, not a replacement for it:
+							left archives, right (further, and through the confirm gate) deletes.
+							Off when offline — the actions would fail anyway — and off in e-ink mode,
+							where there are no animations to read the gesture by.
+						-->
+						<SwipeableCard
+							enabled={settings.isOnline && !settings.einkMode}
+							archiveIcon={library.filter === 'archived' ? 'unarchive' : 'archive'}
+							archiveLabel={library.filter === 'archived' ? 'Restore' : 'Archive'}
+							onArchive={() => archiveArticle(article.id, library.filter !== 'archived')}
+							onDelete={() => deleteArticle(article.id)}
+						>
 						<div class="article-card" onclick={() => goto(`/article/${article.id}`)} onkeydown={() => {}} role="button" tabindex="0">
 							<h3 class="card-title">{article.title}</h3>
 							<div class="card-footer">
@@ -247,6 +261,7 @@
 								</button>
 							</div>
 						</div>
+						</SwipeableCard>
 					{/each}
 				{/if}
 			</div>
@@ -351,6 +366,14 @@
 				<p class="settings-help">Automatically generate summaries for incoming newsletter emails.</p>
 			</div>
 			{/if}
+
+			<div class="settings-group">
+				<label class="setting-toggle">
+					<span class="setting-label">Confirm Before Deleting</span>
+					<input type="checkbox" class="switch" checked={settings.confirmDeletes} onchange={() => settings.toggleConfirmDeletes()} />
+				</label>
+				<p class="settings-help">Ask before permanently deleting an Article. Turn this off for one-tap deletes — a delete still removes the Article's saved images and cannot be undone.</p>
+			</div>
 
 			<div class="settings-group">
 				<label class="setting-toggle">
