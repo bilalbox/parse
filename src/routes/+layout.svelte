@@ -69,9 +69,11 @@
 				}}
 				onkeydown={() => {}}
 				role="slider"
-				aria-valuenow={tts.currentIndex}
+				aria-label="Narration progress"
+				aria-valuenow={Math.round(tts.progress * 100)}
 				aria-valuemin={0}
-				aria-valuemax={tts.sentences.length}
+				aria-valuemax={100}
+				aria-valuetext="{Math.round(tts.progress * 100)}% through the article"
 				tabindex="0"
 			>
 				<div 
