@@ -24,7 +24,8 @@ export interface NetworkAdapter {
 }
 
 export interface CacheAdapter {
-	warm(articles: ArticleListItem[]): Promise<void>;
+	warm(articles: ArticleListItem[], signal?: AbortSignal): Promise<void>;
+	evict(id: string): Promise<void>;
 }
 
 function defaultNetworkAdapter(): NetworkAdapter {
@@ -45,7 +46,10 @@ function defaultNetworkAdapter(): NetworkAdapter {
 
 		async search(query) {
 			const res = await settings.authFetch(`/api/search?q=${encodeURIComponent(query)}`);
-			if (!res.ok) throw new Error('Search failed');
+			if (!res.ok) {
+				if (res.status === 401) throw new Error('Unauthorized');
+				throw new Error('Search failed');
+			}
 			const contentType = res.headers.get('content-type');
 			if (contentType && contentType.includes('text/html')) {
 				throw new Error('Search failed: Server configuration error');
@@ -87,7 +91,7 @@ function defaultCacheAdapter(): CacheAdapter {
 	}
 
 	return {
-		async warm(articles: ArticleListItem[]): Promise<void> {
+		async warm(articles: ArticleListItem[], signal?: AbortSignal): Promise<void> {
 			if (typeof window === 'undefined' || !('caches' in window) || !navigator.onLine) return;
 			try {
 				const cache = await caches.open(RUNTIME_CACHE);
@@ -96,47 +100,84 @@ function defaultCacheAdapter(): CacheAdapter {
 				const listUrl = getRequestUrl('/api/articles');
 				keep.add(listUrl);
 
-				for (const article of articles) {
+				// Bound warming to the top 20 items to conserve bandwidth and connection slots
+				const warmBatch = articles.slice(0, 20);
+
+				for (const article of warmBatch) {
+					if (signal?.aborted) return;
 					const contentUrl = `/api/articles/${article.id}`;
 					const finalContentUrl = getRequestUrl(contentUrl);
 					keep.add(finalContentUrl);
 					try {
 						let res = await cache.match(finalContentUrl);
 						if (!res) {
-							res = await settings.authFetch(contentUrl);
+							res = await settings.authFetch(contentUrl, { signal });
 							if (!res.ok) continue;
+							await cache.put(finalContentUrl, res.clone());
 						}
 						const data = (await res.clone().json()) as any;
 						const urls = mediaUrls(parseArticleContent(data.content).html);
 						for (const m of urls) {
+							if (signal?.aborted) return;
 							const finalMediaUrl = getRequestUrl(m);
 							keep.add(finalMediaUrl);
 							const cachedMedia = await cache.match(finalMediaUrl);
 							if (!cachedMedia) {
-								try { await fetch(finalMediaUrl); } catch {}
+								try {
+									const mediaRes = await fetch(finalMediaUrl, { signal });
+									if (mediaRes.ok) {
+										await cache.put(finalMediaUrl, mediaRes.clone());
+									}
+								} catch {}
 							}
 						}
-					} catch (err) {
+					} catch (err: any) {
+						if (err.name === 'AbortError') return;
 						console.warn('Warming article failed:', article.id, err);
 					}
 				}
 
-				const keys = await cache.keys();
-				for (const req of keys) {
-					if (isRuntimeCacheable(new URL(req.url).pathname) && !keep.has(req.url)) {
-						await cache.delete(req);
+				if (!signal?.aborted) {
+					const keys = await cache.keys();
+					for (const req of keys) {
+						if (isRuntimeCacheable(new URL(req.url).pathname) && !keep.has(req.url)) {
+							await cache.delete(req);
+						}
 					}
 				}
-			} catch (e) {
+			} catch (e: any) {
+				if (e.name === 'AbortError') return;
 				console.warn('Offline cache warm failed:', e);
 			}
 		},
+
+		async evict(id: string): Promise<void> {
+			if (typeof window === 'undefined' || !('caches' in window)) return;
+			try {
+				const cache = await caches.open(RUNTIME_CACHE);
+				const contentUrl = getRequestUrl(`/api/articles/${id}`);
+				const match = await cache.match(contentUrl);
+				if (match) {
+					try {
+						const data = (await match.clone().json()) as any;
+						const urls = mediaUrls(parseArticleContent(data.content).html);
+						for (const u of urls) {
+							await cache.delete(getRequestUrl(u));
+						}
+					} catch {}
+				}
+				await cache.delete(contentUrl);
+			} catch (e) {
+				console.warn('Evicting article from cache failed:', id, e);
+			}
+		}
 	};
 }
 
 export class Library {
 	private network: NetworkAdapter;
 	private cache: CacheAdapter;
+	private warmAbortController: AbortController | null = null;
 
 	// Reactive state
 	articles = $state<ArticleListItem[]>([]);
@@ -144,6 +185,9 @@ export class Library {
 	filter = $state<FilterState>('active');
 	loading = $state<boolean>(true);
 	error = $state<Error | null>(null);
+
+	// Tombstone set for pending deletions (prevents re-fetch race condition)
+	pendingDeletions = $state<Set<string>>(new Set());
 
 	// Derived state
 	filteredList = $derived<ArticleListItem[]>(this.computeFiltered());
@@ -157,16 +201,25 @@ export class Library {
 		this.cache = cache ?? defaultCacheAdapter();
 	}
 
+	abortWarm(): void {
+		if (this.warmAbortController) {
+			this.warmAbortController.abort();
+			this.warmAbortController = null;
+		}
+	}
+
 	async load(): Promise<void> {
 		this.loading = true;
 		this.error = null;
 		try {
 			const data = await this.network.fetchList(this.filter);
-			this.articles = data;
+			this.articles = data.filter(a => !this.pendingDeletions.has(a.id));
 			this.searchResults = null; // Clear search when reloading list
 			
 			if (this.filter === 'active' && settings.isOnline) {
-				this.cache.warm(data);
+				this.abortWarm();
+				this.warmAbortController = new AbortController();
+				this.cache.warm(this.articles, this.warmAbortController.signal);
 			}
 		} catch (err: any) {
 			console.error('Fetch library failed:', err);
@@ -210,24 +263,44 @@ export class Library {
 	}
 
 	async delete(id: string): Promise<void> {
-		await this.network.delete(id);
-		await this.load();
+		this.abortWarm();
+
+		// 1. Optimistic removal
+		const originalIndex = this.articles.findIndex(a => a.id === id);
+		const removedArticle = this.articles[originalIndex];
+		this.pendingDeletions.add(id);
+		this.articles = this.articles.filter(a => a.id !== id);
+
+		// 2. Perform backend delete & cache eviction
+		try {
+			await Promise.all([
+				this.network.delete(id),
+				this.cache.evict(id)
+			]);
+			this.pendingDeletions.delete(id);
+		} catch (err) {
+			// 3. Rollback on failure
+			this.pendingDeletions.delete(id);
+			if (removedArticle) {
+				this.articles.splice(originalIndex, 0, removedArticle);
+			}
+			throw err;
+		}
 	}
 
 	private computeFiltered(): ArticleListItem[] {
-		if (this.searchResults !== null) {
-			return this.searchResults;
-		}
-		// If no remote search results, we just return the currently loaded articles
-		// (which match the active filter by definition from the load() call).
-		// Further local filtering for quick typeahead can happen here if desired.
+		const base = this.searchResults !== null ? this.searchResults : this.articles;
+		const activeItems = base.filter(a => !this.pendingDeletions.has(a.id));
+
 		if (this.query.trim()) {
 			const trimmed = this.query.trim().toLowerCase();
-			return this.articles.filter(a => 
+			return activeItems.filter(a => 
 				(a.title && a.title.toLowerCase().includes(trimmed)) ||
 				(a.author && a.author.toLowerCase().includes(trimmed))
 			);
 		}
-		return this.articles;
+		return activeItems;
 	}
 }
+
+export const library = new Library();

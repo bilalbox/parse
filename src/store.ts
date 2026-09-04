@@ -51,13 +51,18 @@ export interface IngestFailure {
 	created_at: string;
 }
 
+export interface RemoveArticleResult {
+	removed: boolean;
+	mediaKeys: string[];
+}
+
 export interface ArticleStore {
 	list(archived: boolean): Promise<ArticleListItem[]>;
 	get(id: string): Promise<StoredArticle | null>;
 	create(article: Article): Promise<void>;
 	setArchived(id: string, archived: boolean): Promise<boolean>;
 	saveSummary(id: string, summary: string): Promise<void>;
-	remove(id: string): Promise<boolean>;
+	remove(id: string): Promise<RemoveArticleResult>;
 	search(query: string): Promise<SearchHit[]>;
 	recordFailure(urlOrSubject: string, errorMessage: string): Promise<void>;
 	listFailures(): Promise<IngestFailure[]>;
@@ -115,28 +120,19 @@ export function createArticleStore(db: D1Database, userId: string, mediaBucket?:
 			await db.prepare('UPDATE articles SET summary = ? WHERE id = ? AND user_id = ?').bind(summary, id, userId).run();
 		},
 
-		// Permanently removes an Article from the Library/Archive and purges
-		// its associated Media. Returns true if removed, false if not found.
+		// Permanently removes an Article from the Library/Archive and returns its
+		// associated media keys for background purging. Returns { removed: false, mediaKeys: [] } if not found.
 		async remove(id) {
-			if (mediaBucket) {
-				const row = await db.prepare('SELECT content FROM articles WHERE id = ? AND user_id = ?').bind(id, userId).first<{content: string | null}>();
-				if (!row) return false;
+			const row = await db.prepare(
+				'DELETE FROM articles WHERE id = ? AND user_id = ? RETURNING content'
+			).bind(id, userId).first<{ content: string | null }>();
 
-				const keys = extractMediaKeys(row.content);
-				if (keys.length > 0) {
-					try {
-						await mediaBucket.delete(keys);
-					} catch (e) {
-						console.error('Failed to purge R2 media for article', id, e);
-					}
-				}
-			} else {
-				const row = await db.prepare('SELECT 1 FROM articles WHERE id = ? AND user_id = ?').bind(id, userId).first();
-				if (!row) return false;
+			if (!row) {
+				return { removed: false, mediaKeys: [] };
 			}
 
-			await db.prepare('DELETE FROM articles WHERE id = ? AND user_id = ?').bind(id, userId).run();
-			return true;
+			const mediaKeys = extractMediaKeys(row.content);
+			return { removed: true, mediaKeys };
 		},
 
 		async search(query) {

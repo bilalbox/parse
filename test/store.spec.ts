@@ -78,4 +78,35 @@ describe('ArticleStore', () => {
 		expect(hits[0].id).toBe('test-123');
 		expect(hits[0].title).toBe('A Test Article');
 	});
+
+	it('can atomically remove an article and return its media keys', async () => {
+		const store = createArticleStore(env.DB, 'test-user');
+		await store.create({
+			id: 'test-with-media',
+			title: 'Article With Media',
+			author: 'Jane Doe',
+			url: 'https://example.com/test-media',
+			content: JSON.stringify({
+				content: '<p>Intro</p><img src="/media/pic1.png"><p>More</p><img src="/media/pic2.jpg">',
+				textContent: 'Intro More'
+			}),
+			sourceType: 'web',
+			unsubscribeLink: null,
+			unsubscribeOneClick: false,
+			published: null,
+			wordCount: null,
+		});
+
+		const result = await store.remove('test-with-media');
+		expect(result.removed).toBe(true);
+		expect(result.mediaKeys.sort()).toEqual(['pic1.png', 'pic2.jpg']);
+
+		const fetched = await store.get('test-with-media');
+		expect(fetched).toBeNull();
+
+		// Removing already removed item
+		const secondResult = await store.remove('test-with-media');
+		expect(secondResult.removed).toBe(false);
+		expect(secondResult.mediaKeys).toEqual([]);
+	});
 });

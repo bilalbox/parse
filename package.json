@@ -26,7 +26,7 @@
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.0",
-		"@types/node": "^26.4.0",
+		"@types/node": "^26.4.1",
 		"@types/service-worker-mock": "^2.0.4",
 		"sharp": "^0.35.4",
 		"svelte": "^5.57.0",
@@ -34,7 +34,7 @@
 		"typescript": "^6.0.3",
 		"vite": "^8.2.2",
 		"vitest": "~4.1.11",
-		"wrangler": "^4.127.1"
+		"wrangler": "^4.128.0"
 	},
 	"dependencies": {
 		"@capacitor-community/text-to-speech": "^8.0.2",
@@ -44,7 +44,7 @@
 		"@capacitor/cli": "^8.5.1",
 		"@capacitor/core": "^8.5.1",
 		"@capacitor/preferences": "^8.0.1",
-		"@capawesome/capacitor-background-task": "^8.0.2",
+		"@capawesome/capacitor-background-task": "^8.0.3",
 		"@cloudflare/puppeteer": "^1.4.0",
 		"@mozilla/readability": "^0.6.0",
 		"@oslojs/encoding": "^1.1.0",

@@ -1,16 +1,18 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { settings } from '$lib/settings.svelte';
 	import { toast } from '$lib/toast.svelte';
-	import { Library } from '$lib/Library.svelte';
+	import { library } from '$lib/Library.svelte';
 	import { readMinutes, formatDate } from '$lib/format';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 	import SwipeableCard from '$lib/components/SwipeableCard.svelte';
 	import { registerBackOverlay } from '$lib/android-back';
 	import Icon from '$lib/components/Icon.svelte';
 
-	const library = new Library();
+	onDestroy(() => {
+		library.abortWarm();
+	});
 	
 	// Modal and sheet states
 	let showAddSheet = $state(false);

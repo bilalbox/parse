@@ -15,6 +15,7 @@
 	import { sanitizeArticleHtml } from '$lib/sanitize-email';
 	import { readMinutes, formatDate } from '$lib/format';
 	import { openExternal } from '$lib/open-external';
+	import { library } from '$lib/Library.svelte';
 
 	// Svelte 5 States
 	let articleData = $state<any>(null);
@@ -149,18 +150,21 @@
 	}
 
 	async function deleteArticle(): Promise<void> {
-		if (!articleData) return;
+		if (!id || !articleData) return;
 		if (!settings.confirmDelete()) return;
 
-		try {
-			const res = await settings.authFetch(`/api/articles/${id}`, { method: 'DELETE' });
-			if (!res.ok) {
-				const data = (await res.json().catch(() => ({}))) as any;
-				throw new Error(data.error || 'Failed to delete article');
-			}
+		const targetId = id;
+		if (tts.isPlaying && tts.articleId === targetId) {
+			tts.stop();
+		}
 
-			toast.show('Deleted ✓');
-			goto('/', { replaceState: true });
+		// Instant feedback and navigation
+		toast.show('Deleted ✓');
+		goto('/', { replaceState: true });
+
+		// Perform delete in background with rollback alert
+		try {
+			await library.delete(targetId);
 		} catch (err: any) {
 			toast.show(err.message || 'Failed to delete article', 'error');
 		}

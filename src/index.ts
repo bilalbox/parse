@@ -304,10 +304,29 @@ app.patch('/api/articles/:id', async (c) => {
 
 app.delete('/api/articles/:id', async (c) => {
 	const id = c.req.param('id');
-	const store = createArticleStore(c.env.DB, c.get('user').id, c.env.MEDIA_BUCKET);
-	const removed = await store.remove(id);
+	const store = createArticleStore(c.env.DB, c.get('user').id);
+	const result = await store.remove(id);
 
-	if (!removed) return c.json({ error: 'Not found' }, 404);
+	if (!result.removed) return c.json({ error: 'Not found' }, 404);
+
+	if (result.mediaKeys.length > 0 && c.env.MEDIA_BUCKET) {
+		const purgePromise = (async () => {
+			try {
+				for (let i = 0; i < result.mediaKeys.length; i += 1000) {
+					const batch = result.mediaKeys.slice(i, i + 1000);
+					await c.env.MEDIA_BUCKET.delete(batch);
+				}
+			} catch (err) {
+				console.error('Background R2 media purge failed for article', id, err);
+			}
+		})();
+
+		if (c.executionCtx?.waitUntil) {
+			c.executionCtx.waitUntil(purgePromise);
+		} else {
+			purgePromise.catch(() => {});
+		}
+	}
 
 	return c.json({ success: true, id });
 });
