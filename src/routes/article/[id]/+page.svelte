@@ -12,10 +12,9 @@
 	import ReaderMenu from '$lib/components/ReaderMenu.svelte';
 	import TypePanel from '$lib/components/TypePanel.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { sanitizeArticleHtml } from '$lib/sanitize-email';
 	import { readMinutes, formatDate } from '$lib/format';
 	import { openExternal } from '$lib/open-external';
-	import { library } from '$lib/Library.svelte';
+	import { library, presentUnsubscribeOutcome } from '$lib/Library.svelte';
 
 	// Svelte 5 States
 	let articleData = $state<any>(null);
@@ -74,10 +73,16 @@
 	}
 
 	const id = $derived(page.params.id);
-	// The stored content is parsed once, here. The language it yields decides
-	// whether narration is offered at all — settled before the body mounts, so
-	// the play control never appears and then vanishes.
-	const content = $derived(parseArticleContent(articleData?.content));
+	// The stored content is parsed, sanitized, and tidied once here. The language
+	// it yields decides whether narration is offered at all — settled before the
+	// body mounts, so the play control never appears and then vanishes.
+	const content = $derived(
+		parseArticleContent(articleData?.content, {
+			title: articleData?.title,
+			sourceType: articleData?.source_type,
+			summary: articleData?.summary
+		})
+	);
 	const canNarrate = $derived(content.lang !== 'ar');
 
 	async function loadArticle(articleId: string): Promise<void> {
@@ -127,21 +132,10 @@
 	}
 
 	async function archiveArticle(): Promise<void> {
-		if (!articleData) return;
+		if (!articleData || !id) return;
 		const nextArchivedState = !articleData.archived;
-		
 		try {
-			const res = await settings.authFetch(`/api/articles/${id}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ archived: nextArchivedState }),
-			});
-			
-			if (!res.ok) {
-				const data = (await res.json().catch(() => ({}))) as any;
-				throw new Error(data.error || 'Failed to update article');
-			}
-
+			await library.archive(id, nextArchivedState);
 			toast.show(nextArchivedState ? 'Archived ✓' : 'Restored to library ✓');
 			goto('/', { replaceState: true });
 		} catch (err: any) {
@@ -171,21 +165,10 @@
 	}
 
 	async function runUnsubscribe(): Promise<void> {
-		if (!articleData) return;
+		if (!articleData || !id) return;
 		try {
-			const res = await settings.authFetch(`/api/articles/${id}/unsubscribe`, { method: 'POST' });
-			const data = (await res.json()) as any;
-			if (!res.ok) {
-				throw new Error(data.error || 'Failed to unsubscribe');
-			}
-
-			if (data.action === 'mailto') {
-				toast.showLink('Send unsubscribe email via', 'Mail Client', data.link);
-			} else if (data.action === 'one-click') {
-				toast.show(data.ok ? 'Unsubscribe request sent ✓' : 'Failed to unsubscribe');
-			} else if (data.action === 'open') {
-				toast.showLink('Open unsubscribe page:', 'Unsubscribe Link', data.link);
-			}
+			const outcome = await library.unsubscribe(id);
+			presentUnsubscribeOutcome(outcome);
 		} catch (err: any) {
 			toast.show(err.message || 'Failed to unsubscribe', 'error');
 		}
@@ -229,95 +212,12 @@
 		}
 	}
 
-	// Custom markdown summary renderer matching the original implementation
-	function renderSummary(summaryText: string): string {
-		if (!summaryText) return '';
-		
-		const lines = summaryText.split('\n');
-		let html = '';
-		let inList = false;
-		
-		for (const line of lines) {
-			const trimmed = line.trim();
-			
-			// Headings
-			const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
-			if (headingMatch) {
-				if (inList) {
-					html += '</ul>';
-					inList = false;
-				}
-				const level = headingMatch[1].length;
-				const text = headingMatch[2];
-				const formattedText = parseInlineMarkdown(text);
-				html += `<h${level}>${formattedText}</h${level}>`;
-				continue;
-			}
-			
-			// Bullet points
-			const bulletMatch = trimmed.match(/^[\*\-\+]\s+(.+)$/);
-			if (bulletMatch) {
-				if (!inList) {
-					html += '<ul>';
-					inList = true;
-				}
-				const text = bulletMatch[1];
-				const formattedText = parseInlineMarkdown(text);
-				html += `<li>${formattedText}</li>`;
-				continue;
-			}
-			
-			// Empty lines
-			if (trimmed === '') {
-				if (inList) {
-					html += '</ul>';
-					inList = false;
-				}
-				continue;
-			}
-			
-			// Paragraphs
-			if (inList) {
-				html += '</ul>';
-				inList = false;
-			}
-			const formattedText = parseInlineMarkdown(trimmed);
-			html += `<p>${formattedText}</p>`;
-		}
-		
-		if (inList) {
-			html += '</ul>';
-		}
-		
-		function parseInlineMarkdown(text: string): string {
-			return text
-				.replace(/&/g, '&amp;')
-				.replace(/</g, '&lt;')
-				.replace(/>/g, '&gt;')
-				.replace(/&lt;strong&gt;/g, '<strong>').replace(/&lt;\/strong&gt;/g, '</strong>')
-				.replace(/&lt;em&gt;/g, '<em>').replace(/&lt;\/em&gt;/g, '</em>')
-				.replace(/&lt;code&gt;/g, '<code>').replace(/&lt;\/code&gt;/g, '</code>')
-				.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-				.replace(/__(.+?)__/g, '<strong>$1</strong>')
-				.replace(/\*(.+?)\*/g, '<em>$1</em>')
-				.replace(/_(.+?)_/g, '<em>$1</em>')
-				.replace(/`(.+?)`/g, '<code>$1</code>');
-		}
-		
-		return html;
-	}
-
 	// Fetch article whenever ID parameter changes
 	$effect(() => {
 		if (id) {
 			loadArticle(id);
 		}
 	});
-
-	function rewriteHtmlContent(html: string): string {
-		if (!html) return '';
-		return html;
-	}
 
 	// Reactively bind article content to the narration player once loaded and
 	// mounted, via a Svelte 5 attachment.
@@ -435,23 +335,20 @@
 					}
 				}
 			}} onkeydown={() => {}} role="button" tabindex="0">
-				{#if articleData.summary}
+				{#if content.summaryHtml}
 					<div class="ai-summary-callout">
 						<div class="ai-summary-header">
 							<span class="ai-icon"><Icon name="sparkle" size={16} /></span>
 							<strong>AI Summary</strong>
 						</div>
 						<div class="summary-content">
-							{@html sanitizeArticleHtml(rewriteHtmlContent(renderSummary(articleData.summary)))}
+							{@html content.summaryHtml}
 						</div>
 					</div>
 				{/if}
 				
 				<div class="article-body">
-					{@html sanitizeArticleHtml(rewriteHtmlContent(content.html), {
-						title: content.title,
-						sourceType: articleData.source_type
-					})}
+					{@html content.html}
 				</div>
 			</div>
 		{/if}

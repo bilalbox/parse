@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseHTML } from 'linkedom';
-import { tidyArticleDom } from '../src/lib/sanitize-email';
+import { tidyArticleDom } from '../src/lib/article-content';
 
 /** Parse a fragment, tidy it, and hand back the root for assertions. */
 function tidy(html: string, title = '', sourceType = 'email'): Element {

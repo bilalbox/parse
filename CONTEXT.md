@@ -23,11 +23,12 @@ A short markdown digest of an Article (main points / surprises / actionable tool
 _Avoid_: digest, TL;DR
 
 **Article content envelope**:
-The stored `content` blob — a JSON-encoded Readability result — and the one client module that parses it (`src/lib/article-content.ts`). Hands out the title, byline, body HTML, plain text, and the **content language** each consumer needs. The API response and the stored shape are unchanged, deliberately: returning a parsed envelope from the server would stale every offline-cached Article response. Deriving the language here rather than from rendered DOM is what lets the reader decide whether to offer Narration before the body mounts.
+The stored `content` blob — a JSON-encoded Readability result — and the one client module that parses and presents it (`src/lib/article-content.ts`). Hands out the title, byline, sanitized and tidied body HTML, plain text, the **content language** each consumer needs, and compiled summary HTML. The API response and the stored shape are unchanged, deliberately: returning a parsed envelope from the server would stale every offline-cached Article response. Deriving the language here rather than from rendered DOM is what lets the reader decide whether to offer Narration before the body mounts. Absorbs the DOM tidying and sanitization pass so callers receive ready-to-mount HTML.
 _Avoid_: payload, content JSON, article data
 
 **Library**:
-The default list of active (non-archived) Articles.
+The client module and domain store owning active and archived Articles — listing, searching, queueing new URLs for extraction, archiving, deleting, unsubscribing, and autonomous offline cache mirroring (ADR-0002). All Article mutations and cache synchronization sit behind this seam.
+_Avoid_: article list, library manager
 
 **Archive**:
 Moving an Article out of the library without deleting it; its content and media stay.

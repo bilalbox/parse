@@ -1,5 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { parseHTML } from 'linkedom';
 import { parseArticleContent } from '../src/lib/article-content';
+
+beforeAll(() => {
+	if (typeof globalThis.DOMParser === 'undefined') {
+		globalThis.DOMParser = parseHTML('').DOMParser as any;
+	}
+});
 
 /** The shape the extraction spine stores: a Readability result, JSON-encoded. */
 function stored(fields: Record<string, unknown>): string {
@@ -74,6 +81,48 @@ describe('parseArticleContent', () => {
 
 		it('is English for an empty Article', () => {
 			expect(parseArticleContent(null).lang).toBe('en');
+		});
+	});
+
+	describe('summary markdown presentation', () => {
+		it('renders headings and bullet points from markdown summary', () => {
+			const md = '# Key Takeaways\n* Point one with **bold**\n* Point two with `code`\n\nFinal thought.';
+			const result = parseArticleContent(stored({ title: 'Test' }), { summary: md });
+			expect(result.summaryHtml).toContain('<h1>Key Takeaways</h1>');
+			expect(result.summaryHtml).toContain('<ul>');
+			expect(result.summaryHtml).toContain('<li>Point one with <strong>bold</strong></li>');
+			expect(result.summaryHtml).toContain('<li>Point two with <code>code</code></li>');
+			expect(result.summaryHtml).toContain('<p>Final thought.</p>');
+		});
+
+		it('strips unsafe script tags from summaries', () => {
+			const md = '* Valid point\n<script>alert("xss")</script>';
+			const result = parseArticleContent(stored({ title: 'Test' }), { summary: md });
+			expect(result.summaryHtml).not.toContain('<script>');
+			expect(result.summaryHtml).toContain('Valid point');
+		});
+
+		it('returns empty string when no summary is provided', () => {
+			expect(parseArticleContent(stored({ title: 'Test' })).summaryHtml).toBe('');
+			expect(parseArticleContent(stored({ title: 'Test' }), { summary: null }).summaryHtml).toBe('');
+		});
+	});
+
+	describe('HTML sanitization in content envelope', () => {
+		it('purges unsafe tags and event handlers from HTML content', () => {
+			const dirty = '<p>Safe</p><script>evil()</script><img src="x" onerror="steal()">';
+			const result = parseArticleContent(stored({ content: dirty }));
+			expect(result.html).toContain('<p>Safe</p>');
+			expect(result.html).not.toContain('<script>');
+			expect(result.html).not.toContain('onerror');
+		});
+
+		it('strips disruptive inline styling like absolute positioning and negative margins', () => {
+			const styled = '<p style="position: fixed; margin-left: -50px; color: red;">Styled</p>';
+			const result = parseArticleContent(stored({ content: styled }));
+			expect(result.html).not.toContain('position: fixed');
+			expect(result.html).not.toContain('margin-left');
+			expect(result.html).toContain('color: red');
 		});
 	});
 });

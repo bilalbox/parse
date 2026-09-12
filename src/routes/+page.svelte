@@ -1,18 +1,14 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { settings } from '$lib/settings.svelte';
 	import { toast } from '$lib/toast.svelte';
-	import { library } from '$lib/Library.svelte';
+	import { library, presentUnsubscribeOutcome } from '$lib/Library.svelte';
 	import { readMinutes, formatDate } from '$lib/format';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 	import SwipeableCard from '$lib/components/SwipeableCard.svelte';
 	import { registerBackOverlay } from '$lib/android-back';
 	import Icon from '$lib/components/Icon.svelte';
-
-	onDestroy(() => {
-		library.abortWarm();
-	});
 	
 	// Modal and sheet states
 	let showAddSheet = $state(false);
@@ -39,50 +35,27 @@
 
 	// Instead of manual functions, use library instance.
 	// But we still need handleParse to run queue inserts
-	// runUnsubscribe handles external HTTP calls out of Library scope.
-
 	async function handleParse(e: SubmitEvent): Promise<void> {
 		e.preventDefault();
 		if (!urlToParse) return;
-		if (!settings.isOnline) {
-			toast.show('Cannot parse new URLs while offline.', 'error');
-			return;
-		}
 
 		parsing = true;
 		parseError = '';
 
 		try {
-			const res = await settings.authFetch('/api/queue', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ url: urlToParse }),
-			});
-
-			if (!res.ok) {
-				const data = (await res.json().catch(() => ({}))) as any;
-				throw new Error(data.error || 'Failed to queue URL');
-			}
-
+			await library.add(urlToParse);
 			toast.show('Added to parse queue! ✓');
 			urlToParse = '';
 			showAddSheet = false;
-			// Reload active articles after queueing
-			setTimeout(() => {
-				library.load();
-			}, 1500);
 		} catch (err: any) {
 			parseError = err.message || 'Parsing failed';
+			toast.show(parseError, 'error');
 		} finally {
 			parsing = false;
 		}
 	}
 
 	async function archiveArticle(id: string, archived: boolean): Promise<void> {
-		if (!settings.isOnline) {
-			toast.show(`Cannot ${archived ? 'archive' : 'unarchive'} while offline.`, 'error');
-			return;
-		}
 		try {
 			await library.archive(id, archived);
 			toast.show(archived ? 'Archived ✓' : 'Restored to library ✓');
@@ -92,10 +65,6 @@
 	}
 
 	async function deleteArticle(id: string): Promise<void> {
-		if (!settings.isOnline) {
-			toast.show('Cannot delete while offline.', 'error');
-			return;
-		}
 		if (!settings.confirmDelete()) return;
 		try {
 			await library.delete(id);
@@ -107,25 +76,9 @@
 
 	async function runUnsubscribe(id: string): Promise<void> {
 		if (!id) return;
-		if (!settings.isOnline) {
-			toast.show('Cannot unsubscribe while offline.', 'error');
-			return;
-		}
-
 		try {
-			const res = await settings.authFetch(`/api/articles/${id}/unsubscribe`, { method: 'POST' });
-			const data = (await res.json()) as any;
-			if (!res.ok) {
-				throw new Error(data.error || 'Failed to unsubscribe');
-			}
-
-			if (data.action === 'mailto') {
-				toast.showLink('Send unsubscribe email via', 'Mail Client', data.link);
-			} else if (data.action === 'one-click') {
-				toast.show(data.ok ? 'Unsubscribe request sent ✓' : 'Failed to unsubscribe');
-			} else if (data.action === 'open') {
-				toast.showLink('Open unsubscribe page:', 'Unsubscribe Link', data.link);
-			}
+			const outcome = await library.unsubscribe(id);
+			presentUnsubscribeOutcome(outcome);
 		} catch (err: any) {
 			toast.show(err.message || 'Failed to unsubscribe', 'error');
 		}
