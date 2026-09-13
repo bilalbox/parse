@@ -269,12 +269,13 @@ app.post('/api/articles/:id/unsubscribe', async (c) => {
 
 app.post('/api/articles/:id/summarize', async (c) => {
 	const id = c.req.param('id');
+	const force = c.req.query('force') === 'true';
 	const store = createArticleStore(c.env.DB, c.get('user').id);
 	const row = await store.get(id);
 
 	if (!row) return c.json({ error: 'Not found' }, 404);
 
-	if (row.summary) {
+	if (row.summary && !force) {
 		return c.json({ summary: row.summary });
 	}
 

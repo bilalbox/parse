@@ -853,6 +853,35 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 0.95em;
 }
 
+.reader-content .summary-content h3 {
+    font-size: 1em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 1.25em;
+    margin-bottom: 0.4em;
+    color: var(--text-primary);
+}
+
+.reader-content .summary-content h3:first-child {
+    margin-top: 0;
+}
+
+.reader-content .summary-content p {
+    margin-bottom: 0.85em;
+    line-height: 1.6;
+}
+
+.reader-content .summary-content ul {
+    margin-bottom: 1em;
+    padding-left: 1.25rem;
+}
+
+.reader-content .summary-content li {
+    margin-bottom: 0.4em;
+    line-height: 1.55;
+}
+
 /* .parsed-action-links is the Rescue contract (src/lib/rescue.ts); CSS cannot
    import it, so test/rescue-contract.spec.ts guards this reference. */
 .reader-content .parsed-action-links a {

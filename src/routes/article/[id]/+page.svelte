@@ -114,16 +114,24 @@
 			return;
 		}
 
+		const hasExistingSummary = !!articleData.summary;
+		if (hasExistingSummary) {
+			const confirmed = window.confirm('A summary already exists. Regenerate it with the updated model?');
+			if (!confirmed) return;
+		}
+
 		summarizing = true;
+		toast.show(hasExistingSummary ? 'Regenerating summary...' : 'Generating summary...', 'info', 3000);
 		try {
-			const res = await settings.authFetch(`/api/articles/${id}/summarize`, { method: 'POST' });
+			const endpoint = `/api/articles/${id}/summarize${hasExistingSummary ? '?force=true' : ''}`;
+			const res = await settings.authFetch(endpoint, { method: 'POST' });
 			const data = (await res.json()) as any;
 			if (!res.ok) {
 				throw new Error(data.error || 'Failed to summarize');
 			}
 
 			articleData.summary = data.summary;
-			toast.show('Summary generated ✓');
+			toast.show(hasExistingSummary ? 'Summary regenerated ✓' : 'Summary generated ✓');
 		} catch (err: any) {
 			toast.show(err.message || 'Failed to generate summary', 'error');
 		} finally {
@@ -270,7 +278,7 @@
 					class="icon-btn"
 					onclick={runSummarize}
 					disabled={summarizing || !settings.isOnline}
-					title="Summarize"
+					title={articleData?.summary ? 'Regenerate summary' : 'Summarize'}
 				>
 					<Icon name="sparkle" />
 				</button>
