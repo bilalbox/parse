@@ -85,17 +85,18 @@ describe('summarizeArticle', () => {
 		expect(saved[0].summary).toBe('### Overview\nA concise overview.');
 	});
 
-	it('truncates the input to 50000 chars before sending it to the model', async () => {
+	it('truncates the input to 100000 chars before sending it to the model', async () => {
 		const { ai, calls } = fakeAi({ response: 'ok' });
 		const { db } = fakeDb();
 
-		await summarizeArticle({ AI: ai, DB: db }, 'id', 'x'.repeat(60000), 'user-1');
+		await summarizeArticle({ AI: ai, DB: db }, 'id', 'x'.repeat(120000), 'user-1');
 
-		// The prompt wraps the (truncated) content: the 50000-char slice is
-		// present, but the full 60000-char body is not.
+		// The prompt wraps the (truncated) content: the 100000-char slice is
+		// present, but the full 120000-char body is not.
 		const userContent: string = calls[0].input.messages[1].content;
-		expect(userContent).toContain('x'.repeat(50000));
-		expect(userContent).not.toContain('x'.repeat(50001));
+		expect(userContent).toContain('x'.repeat(100000));
+		expect(userContent).not.toContain('x'.repeat(100001));
+		expect(calls[0].input.max_tokens).toBe(4096);
 	});
 
 	it('retries on transient errors (like 429 capacity) and succeeds on a subsequent attempt', async () => {

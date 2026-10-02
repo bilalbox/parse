@@ -10,10 +10,10 @@ import { createArticleStore } from './store';
 type SummarizeEnv = { AI: Ai; DB: D1Database };
 
 // The model that turns Article text into a Summary. One line to change.
-const SUMMARY_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';
+const SUMMARY_MODEL = '@cf/google/gemma-4-26b-a4b-it';
 
 // Workers AI input cap — large Articles are truncated, not rejected.
-const MAX_INPUT_CHARS = 50000;
+const MAX_INPUT_CHARS = 100000;
 
 const SYSTEM_PROMPT =
 	'You are an expert reading assistant and executive analyst producing high-signal, detailed markdown summaries that capture both core ideas and non-obvious nuances.';
@@ -39,9 +39,9 @@ ${textContent.slice(0, MAX_INPUT_CHARS)}`;
 }
 
 export function readSummary(result: any): string | null {
-	const raw = result?.response || result?.choices?.[0]?.message?.content || result?.result || null;
+	const raw = result?.response || result?.choices?.[0]?.message?.content || result?.choices?.[0]?.text || result?.result || null;
 	if (typeof raw !== 'string') return null;
-	const cleaned = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+	const cleaned = raw.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '').trim();
 	return cleaned || null;
 }
 
@@ -92,7 +92,7 @@ export async function summarizeArticle(
 					{ role: 'system', content: SYSTEM_PROMPT },
 					{ role: 'user', content: buildPrompt(textContent) },
 				],
-				max_tokens: 1500,
+				max_tokens: 4096,
 				temperature: 0.3,
 			})) as any;
 
