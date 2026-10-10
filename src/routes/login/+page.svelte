@@ -127,6 +127,10 @@
 				<button type="button" class="back-btn" onclick={stopDeviceLogin}>Back</button>
 			</div>
 		{/if}
+
+		<div class="demo-link-container">
+			<a href="/article/welcome" class="demo-link">Preview Sample Article & Tour →</a>
+		</div>
 	</div>
 </main>
 
@@ -258,5 +262,22 @@
 	}
 	.back-btn:hover {
 		color: var(--text-primary);
+	}
+
+	.demo-link-container {
+		margin-top: 1.5rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid var(--border-glass);
+	}
+	.demo-link {
+		color: var(--text-secondary);
+		font-size: 0.85rem;
+		text-decoration: none;
+		transition: color 0.2s;
+	}
+	.demo-link:hover {
+		color: var(--text-primary);
+		text-decoration: underline;
+		text-underline-offset: 3px;
 	}
 </style>

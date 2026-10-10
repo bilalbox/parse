@@ -15,6 +15,7 @@
 	import { readMinutes, formatDate } from '$lib/format';
 	import { openExternal } from '$lib/open-external';
 	import { library, presentUnsubscribeOutcome } from '$lib/Library.svelte';
+	import { WELCOME_ARTICLE } from '$lib/welcome-article';
 
 	// Svelte 5 States
 	let articleData = $state<any>(null);
@@ -28,6 +29,7 @@
 	let showMenu = $state(false);
 	let showTypePanel = $state(false);
 	let headerHidden = $state(false);
+	let scrollProgress = $state(0);
 	const READER_HEADER_HEIGHT = 64; // keep in sync with .app-header height in app.css
 
 	// Auto-hide gives the text the whole screen while reading. The header always
@@ -40,6 +42,9 @@
 
 	function onReaderScroll(): void {
 		if (!viewEl) return;
+		const maxScroll = viewEl.scrollHeight - viewEl.clientHeight;
+		scrollProgress = maxScroll > 0 ? Math.min(1, Math.max(0, viewEl.scrollTop / maxScroll)) : 0;
+
 		// E-ink navigates by the ‹ › page-turn buttons, which live in this header
 		// and scroll the view programmatically — auto-hiding would remove the
 		// control the reader just tapped, with no scroll gesture left to bring it
@@ -88,6 +93,12 @@
 	async function loadArticle(articleId: string): Promise<void> {
 		loading = true;
 		articleData = null;
+		if (articleId === 'welcome') {
+			articleData = WELCOME_ARTICLE;
+			document.title = `${parseArticleContent(articleData.content).title} | Parse`;
+			loading = false;
+			return;
+		}
 		try {
 			const res = await settings.authFetch(`/api/articles/${articleId}`);
 			if (!res.ok) {
@@ -109,6 +120,10 @@
 
 	async function runSummarize(): Promise<void> {
 		if (!id || !articleData) return;
+		if (id === 'welcome') {
+			toast.show('Sample summary refreshed ✓');
+			return;
+		}
 		if (!settings.isOnline) {
 			toast.show('Cannot summarize while offline.', 'error');
 			return;
@@ -141,6 +156,11 @@
 
 	async function archiveArticle(): Promise<void> {
 		if (!articleData || !id) return;
+		if (id === 'welcome') {
+			toast.show('Archived ✓');
+			goto('/', { replaceState: true });
+			return;
+		}
 		const nextArchivedState = !articleData.archived;
 		try {
 			await library.archive(id, nextArchivedState);
@@ -163,6 +183,8 @@
 		// Instant feedback and navigation
 		toast.show('Deleted ✓');
 		goto('/', { replaceState: true });
+
+		if (targetId === 'welcome') return;
 
 		// Perform delete in background with rollback alert
 		try {
@@ -251,6 +273,10 @@
 </script>
 
 <main id="view-article" class="view active" bind:this={viewEl} onscroll={onReaderScroll}>
+	<div class="reading-progress-track" aria-hidden="true">
+		<div class="reading-progress-bar" style="width: {scrollProgress * 100}%"></div>
+	</div>
+
 	<nav class="app-header reader-header" class:header-hidden={headerHidden}>
 		<button onclick={() => goto('/', { replaceState: true })} class="icon-btn" title="Back to Library">
 			<Icon name="arrow-left" />
@@ -332,7 +358,23 @@
 					}}>View original</a
 				>
 			{/if}
-			<p style="color: var(--accent); margin-bottom: 2rem;">By {articleData.author || content.byline || 'Unknown Author'}{#if formatDate(articleData.published)} · {formatDate(articleData.published)}{/if}{#if articleData.word_count} · {readMinutes(articleData.word_count)} min read{/if}</p>
+			<div class="reader-byline">
+				{#if articleData.author || content.byline}
+					<span class="byline-author">By {articleData.author || content.byline}</span>
+				{/if}
+				{#if formatDate(articleData.published)}
+					{#if articleData.author || content.byline}
+						<span class="byline-sep">·</span>
+					{/if}
+					<span class="byline-date">{formatDate(articleData.published)}</span>
+				{/if}
+				{#if articleData.word_count}
+					{#if articleData.author || content.byline || formatDate(articleData.published)}
+						<span class="byline-sep">·</span>
+					{/if}
+					<span class="byline-read-time">{readMinutes(articleData.word_count)} min read</span>
+				{/if}
+			</div>
 			
 			<div id="tts-content-wrapper" use:interceptInteractions {@attach ttsAttachment} onclick={(e) => {
 				const target = e.target as HTMLElement;

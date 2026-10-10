@@ -1,13 +1,14 @@
 /// <reference lib="webworker" />
 
-import { build, files, version } from '$service-worker';
+import { version } from '$app/env';
+import { assets, immutable } from '$app/manifest';
 import { RUNTIME_CACHE, isRuntimeCacheable } from './lib/cache-convention';
 
 const SHELL_CACHE = `parse-shell-${version}`;
 const SHELL_ASSETS = [
 	'/',
-	...build,
-	...files
+	...immutable.map((asset) => asset.path),
+	...assets.map((asset) => asset.path)
 ];
 
 // Helper to cast self to ServiceWorkerGlobalScope

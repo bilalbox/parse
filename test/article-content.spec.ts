@@ -125,4 +125,18 @@ describe('parseArticleContent', () => {
 			expect(result.html).toContain('color: red');
 		});
 	});
+
+	describe('welcome tutorial article', () => {
+		it('parses valid reader content, summary, and english lang', async () => {
+			const { WELCOME_ARTICLE } = await import('../src/lib/welcome-article');
+			const result = parseArticleContent(WELCOME_ARTICLE.content, {
+				title: WELCOME_ARTICLE.title,
+				summary: WELCOME_ARTICLE.summary
+			});
+			expect(result.title).toBe('Welcome to Parse: Distraction-Free Reading & Listening');
+			expect(result.lang).toBe('en');
+			expect(result.html).toContain('Welcome to <strong>Parse</strong>');
+			expect(result.summaryHtml).toContain('Quick Summary');
+		});
+	});
 });

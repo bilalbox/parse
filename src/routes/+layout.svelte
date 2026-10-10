@@ -14,6 +14,14 @@
 	// Svelte 5 layout uses the children prop
 	let { children } = $props();
 
+	const PLAYBACK_SPEEDS = [0.75, 1.0, 1.2, 1.5, 2.0];
+	function cyclePlaybackSpeed(): void {
+		const curr = tts.selectedSpeed;
+		const idx = PLAYBACK_SPEEDS.findIndex((s) => Math.abs(s - curr) < 0.05);
+		const next = PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length];
+		tts.setSpeed(next);
+	}
+
 	onMount(() => {
 		let cancelled = false;
 		let removeListener: (() => void) | undefined;
@@ -121,22 +129,14 @@
 				</div>
 
 				<div class="player-extra">
-					<div class="select-wrapper">
-						<select 
-							value={tts.selectedSpeed} 
-							onchange={(e) => tts.setSpeed(parseFloat(e.currentTarget.value))} 
-							class="player-select" 
-							title="Playback Speed"
-						>
-							<option value="0.5">0.5x</option>
-							<option value="0.75">0.75x</option>
-							<option value="1">1.0x</option>
-							<option value="1.2">1.2x</option>
-							<option value="1.5">1.5x</option>
-							<option value="1.75">1.75x</option>
-							<option value="2">2.0x</option>
-						</select>
-					</div>
+					<button
+						type="button"
+						class="player-speed-btn"
+						onclick={cyclePlaybackSpeed}
+						title="Playback speed (tap to cycle: {tts.selectedSpeed}x)"
+					>
+						{tts.selectedSpeed}x
+					</button>
 					<div class="select-wrapper">
 						<select 
 							value={tts.selectedVoice}

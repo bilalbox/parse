@@ -1,10 +1,8 @@
 {
-	"extends": "./.svelte-kit/tsconfig.json",
+	"extends": "$app/tsconfig",
 	"compilerOptions": {
-		/* Visit https://aka.ms/tsconfig.json to read more about this file */
-
 		"target": "es2024",
-		"lib": ["es2024"],
+		"lib": ["es2024", "DOM", "DOM.Iterable"],
 		"jsx": "react-jsx",
 		"module": "es2022",
 		"moduleResolution": "Bundler",
@@ -18,14 +16,16 @@
 		"strict": true,
 		"skipLibCheck": true,
 		"types": [
-			"node"
-		]
+			"node",
+			"$app/types"
+		],
+		"paths": {
+			"$lib": ["./src/lib"],
+			"$lib/*": ["./src/lib/*"]
+		}
 	},
-	"exclude": ["test"],
+	"exclude": ["test", "src/service-worker.ts", "src/service-worker"],
 	"include": [
-		".svelte-kit/ambient.d.ts",
-		".svelte-kit/non-ambient.d.ts",
-		".svelte-kit/types/**/$types.d.ts",
 		"worker-configuration.d.ts",
 		"src/**/*.ts",
 		"src/**/*.svelte"

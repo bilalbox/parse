@@ -28,7 +28,10 @@
 		| 'close'
 		| 'skip-back'
 		| 'skip-forward'
-		| 'external';
+		| 'external'
+		| 'copy'
+		| 'check'
+		| 'link';
 
 	const PATHS: Record<IconName, string> = {
 		'arrow-left': '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
@@ -53,7 +56,10 @@
 		close: '<path d="m6 6 12 12"/><path d="m18 6-12 12"/>',
 		'skip-back': '<path d="M18 5.5v13L8.5 12 18 5.5Z"/><path d="M6 5.5v13"/>',
 		'skip-forward': '<path d="M6 5.5v13L15.5 12 6 5.5Z"/><path d="M18 5.5v13"/>',
-		external: '<path d="M14 4.5h5.5V10"/><path d="M19.5 4.5 11 13"/><path d="M18 14.5v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1h4"/>'
+		external: '<path d="M14 4.5h5.5V10"/><path d="M19.5 4.5 11 13"/><path d="M18 14.5v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1h4"/>',
+		copy: '<rect width="13" height="13" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+		check: '<path d="M20 6 9 17l-5-5"/>',
+		link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
 	};
 
 	/** Icons whose shape reads as a solid mark rather than an outline. */

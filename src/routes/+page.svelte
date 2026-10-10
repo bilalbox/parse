@@ -9,6 +9,7 @@
 	import SwipeableCard from '$lib/components/SwipeableCard.svelte';
 	import { registerBackOverlay } from '$lib/android-back';
 	import Icon from '$lib/components/Icon.svelte';
+	import { tts } from '$lib/tts.svelte';
 	
 	// Modal and sheet states
 	let showAddSheet = $state(false);
@@ -30,6 +31,33 @@
 	let urlToParse = $state('');
 	let parsing = $state(false);
 	let parseError = $state('');
+	let clipboardUrl = $state('');
+
+	const totalArticles = $derived(library.filteredList.length);
+	const totalMinutes = $derived(
+		library.filteredList.reduce((acc: number, a: { word_count?: number | null }) => acc + (a.word_count ? Math.ceil(a.word_count / 220) : 3), 0)
+	);
+
+	$effect(() => {
+		if (showAddSheet) {
+			if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+				navigator.clipboard.readText()
+					.then((text) => {
+						const trimmed = (text || '').trim();
+						if (/^https?:\/\/[^\s]+$/i.test(trimmed)) {
+							clipboardUrl = trimmed;
+						} else {
+							clipboardUrl = '';
+						}
+					})
+					.catch(() => {
+						clipboardUrl = '';
+					});
+			}
+		} else {
+			clipboardUrl = '';
+		}
+	});
 	
 
 
@@ -154,7 +182,17 @@
 	<PullToRefresh onRefresh={async () => { await library.load(); }}>
 		<section class="library-section">
 			<div class="library-header">
-				<h2>Library</h2>
+				<div class="library-title-group">
+					<h2>Library</h2>
+					{#if !library.loading && totalArticles > 0}
+						<span class="library-summary-metric">
+							<strong>{totalArticles}</strong> {totalArticles === 1 ? 'article' : 'articles'}
+							{#if library.filter === 'active'}
+								<span class="metric-divider">·</span> <strong>~{totalMinutes}m</strong> to read
+							{/if}
+						</span>
+					{/if}
+				</div>
 				<div class="library-tools">
 					<div class="filter-toggle" id="filter-toggle">
 						<button class="filter-btn" class:active={library.filter === 'active'} onclick={() => library.setFilter('active')}>Active</button>
@@ -176,9 +214,59 @@
 						{library.error.message}
 					</p>
 				{:else if library.filteredList.length === 0}
-					<p style="color: var(--text-secondary); grid-column: 1/-1; text-align: center; padding: 2rem;">
-						{library.filter === 'archived' ? 'No archived articles yet.' : 'Your library is empty. Start by parsing an article above!'}
-					</p>
+					{#if library.filter === 'archived'}
+						<p style="color: var(--text-secondary); grid-column: 1/-1; text-align: center; padding: 2rem;">
+							No archived articles yet.
+						</p>
+					{:else}
+						<div class="onboarding-card">
+							<div class="onboarding-header">
+								<div class="onboarding-title-badge">
+									<span class="onboarding-badge">Quick Start</span>
+									<h4>Welcome to Parse</h4>
+								</div>
+								<span class="onboarding-progress-text"><strong>2 of 3</strong> complete (66%)</span>
+							</div>
+							
+							<div class="onboarding-meter" role="progressbar" aria-valuenow="66" aria-valuemin="0" aria-valuemax="100">
+								<div class="onboarding-meter-fill" style="width: 66%;"></div>
+							</div>
+
+							<ul class="onboarding-steps">
+								<li class="step-done">
+									<span class="step-check"><Icon name="check" size={14} /></span>
+									<span class="step-text">Account created & ready</span>
+								</li>
+								<li class="step-done">
+									<span class="step-check"><Icon name="check" size={14} /></span>
+									<div class="step-content">
+										<span class="step-text">Welcome tutorial guide ready</span>
+										<a href="/article/welcome" class="step-link" onclick={(e) => { e.preventDefault(); goto('/article/welcome'); }}>
+											Read Welcome Guide & Tour →
+										</a>
+									</div>
+								</li>
+								<li class="step-pending">
+									<span class="step-circle"></span>
+									<div class="step-content">
+										<span class="step-text">Save your first web article or newsletter</span>
+										<div class="step-actions">
+											<button type="button" class="step-action-btn" onclick={() => showAddSheet = true}>
+												<Icon name="plus" size={14} />
+												<span>Add URL</span>
+											</button>
+											{#if settings.user?.email_alias}
+												<button type="button" class="step-action-btn" onclick={() => showSettingsModal = true}>
+													<Icon name="settings" size={14} />
+													<span>Newsletter Address</span>
+												</button>
+											{/if}
+										</div>
+									</div>
+								</li>
+							</ul>
+						</div>
+					{/if}
 				{:else}
 					{#each library.filteredList as article (article.id)}
 						<!--
@@ -198,11 +286,13 @@
 							<h3 class="card-title">{article.title}</h3>
 							<div class="card-footer">
 								<div class="card-meta">
-									<span class="author">{article.author || 'Unknown'}</span>
+									{#if article.author}
+										<span class="author">{article.author}</span>
+									{/if}
 									<span class="card-meta-right">
 										<span class="date">{formatDate(article.published) ?? formatDate(article.created_at)}</span>
 										{#if article.word_count}
-											<span class="read-time">· {readMinutes(article.word_count)} min read</span>
+											<span class="read-time-pill">{readMinutes(article.word_count)} min</span>
 										{/if}
 									</span>
 								</div>
@@ -223,6 +313,16 @@
 		</section>
 	</PullToRefresh>
 
+	<button
+		class="fab-add-btn"
+		class:with-player={tts.visible}
+		onclick={() => showAddSheet = true}
+		aria-label="Add URL"
+		title="Add URL"
+	>
+		<Icon name="plus" size={24} />
+	</button>
+
 	<footer style="text-align: center; padding: 2rem; padding-top: 0; color: var(--text-secondary); font-size: 0.85rem; font-family: var(--font-ui);">
 		<a href="/privacy" style="color: inherit; text-decoration: underline; text-underline-offset: 4px;">Privacy Policy</a>
 	</footer>
@@ -238,6 +338,20 @@
 				<button id="close-sheet" class="icon-btn" onclick={() => showAddSheet = false} title="Close"><Icon name="close" /></button>
 			</div>
 			<form id="parse-form" class="parse-form" onsubmit={handleParse}>
+				{#if clipboardUrl}
+					<div class="clipboard-suggestion">
+						<span class="clipboard-label">From clipboard</span>
+						<button
+							type="button"
+							class="clipboard-chip"
+							onclick={() => { urlToParse = clipboardUrl; clipboardUrl = ''; }}
+						>
+							<Icon name="link" size={14} />
+							<span class="clipboard-url">{clipboardUrl}</span>
+							<span class="clipboard-action">Paste</span>
+						</button>
+					</div>
+				{/if}
 				<div class="input-group">
 					<input type="url" id="url-input" bind:value={urlToParse} placeholder="https://..." required disabled={parsing}>
 					<button type="submit" id="submit-btn" disabled={parsing || !settings.isOnline}>
@@ -304,7 +418,23 @@
 			{#if settings.user}
 			<div class="settings-group" style="margin-top: 1rem;">
 				<div class="setting-label">Forwarding Address</div>
-				<p class="settings-help" style="word-break: break-all;">{settings.user.email_alias}</p>
+				<div class="alias-copy-row">
+					<p class="settings-help alias-text" style="word-break: break-all;">{settings.user.email_alias}</p>
+					<button
+						type="button"
+						class="copy-alias-btn"
+						onclick={() => {
+							if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+								navigator.clipboard.writeText(settings.user.email_alias);
+								toast.show('Forwarding address copied! ✓');
+							}
+						}}
+						title="Copy forwarding address"
+					>
+						<Icon name="copy" size={14} />
+						<span>Copy</span>
+					</button>
+				</div>
 				<p class="settings-help" style="margin-top: 0.25rem; font-size: 0.8rem;">Emails sent to this address will be saved to your library.</p>
 			</div>
 
