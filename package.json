@@ -3,7 +3,7 @@
 	"version": "0.8.0",
 	"private": true,
 	"type": "module",
-	"packageManager": "pnpm@12.8.2+sha512.a5941679663d952c5f0ecc38ba98af98b4dc01b95780354f6894f2f873973cef2f7e2989d7db3ee5393938ae21f62fe06bcdf685d475ddad829a62095d2b8b11",
+	"packageManager": "pnpm@12.13.0+sha512.1e55719bf26e809dce5c5084fdebaa64efb3da9038ae5d68a9f8a68311f1a45841c8c3b76a37298c3b66f6bcc80409a9b7f33c78a7168a3e90fb65a5d8235ae4",
 	"scripts": {
 		"build": "vite build",
 		"deploy": "pnpm run build && wrangler deploy",
@@ -26,14 +26,14 @@
 		"@sveltejs/adapter-static": "^4.0.0",
 		"@sveltejs/kit": "^3.0.1",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
-		"@types/node": "^26.6.4",
+		"@types/node": "^26.6.5",
 		"@types/service-worker-mock": "^2.0.4",
 		"sharp": "^0.35.5",
 		"svelte": "^5.57.2",
 		"svelte-check": "^4.7.6",
 		"typescript": "^6.0.3",
 		"vite": "^8.3.4",
-		"vitest": "~5.0.3",
+		"vitest": "~5.0.4",
 		"wrangler": "^4.149.0"
 	},
 	"dependencies": {
@@ -49,8 +49,8 @@
 		"@mozilla/readability": "^0.6.0",
 		"@oslojs/encoding": "^1.1.0",
 		"arctic": "^3.7.0",
-		"defuddle": "^0.19.4",
-		"dompurify": "^3.4.16",
+		"defuddle": "^0.19.5",
+		"dompurify": "^3.4.17",
 		"hono": "^4.13.13",
 		"linkedom": "^0.18.13",
 		"postal-mime": "^4.0.5"
