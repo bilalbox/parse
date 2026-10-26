@@ -11,6 +11,18 @@ export async function createWebSource(url: string, browserBinding: Parameters<ty
 	const browser = await puppeteer.launch(browserBinding);
 	const page = await browser.newPage();
 	await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+
+	// Trigger IntersectionObserver for below-the-fold images & screenshots
+	try {
+		await page.evaluate(async () => {
+			window.scrollBy(0, document.body.scrollHeight / 2);
+			await new Promise((r) => setTimeout(r, 200));
+			window.scrollTo(0, 0);
+		});
+	} catch {
+		// Ignore page evaluation errors on restricted or fast-closing contexts
+	}
+
 	const html = await page.content();
 	await browser.close();
 

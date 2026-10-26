@@ -53,20 +53,72 @@ export interface Article {
 	content: string;
 }
 
+const EXTENDED_LAZY_ATTRS = [
+	'data-src',
+	'data-lazy-src',
+	'data-original',
+	'data-fallback-src',
+	'data-actual-src',
+	'data-src-webp',
+	'data-orig-file',
+	'data-large-file',
+	'data-full-url',
+	'data-zoom-src',
+	'data-hi-res-src',
+	'data-url',
+	'data-lazy',
+	'nitro-lazy-src',
+];
+
+function isImagePlaceholder(src: string | null | undefined): boolean {
+	return (
+		!src ||
+		src.startsWith('data:image/') ||
+		src.includes('placeholder') ||
+		src.includes('transparent') ||
+		src.includes('1x1') ||
+		src.includes('blank')
+	);
+}
+
 // Pull lazy-loaded image URLs out of data-* attributes / srcset into a real
 // src so Readability and the image step see a fetchable image, not a spacer.
 export function resolveLazyImages(doc: any) {
+	// 1. Unpack <noscript> fallback images if adjacent/prior <img> is a placeholder
+	const noscripts = Array.from(doc.querySelectorAll('noscript')) as any[];
+	for (const ns of noscripts) {
+		const prev = ns.previousElementSibling;
+		if (prev && prev.tagName === 'IMG' && isImagePlaceholder(prev.getAttribute('src'))) {
+			const m = (ns.innerHTML || ns.textContent || '').match(/<img[^>]+src=["']([^"']+)["']/i);
+			if (m && m[1]) prev.setAttribute('src', m[1]);
+		}
+	}
+
+	// 2. Unpack <picture><source srcset="...">
+	const pictures = Array.from(doc.querySelectorAll('picture')) as any[];
+	for (const pic of pictures) {
+		const img = pic.querySelector('img');
+		if (img && isImagePlaceholder(img.getAttribute('src'))) {
+			const source = pic.querySelector('source[srcset]');
+			if (source) {
+				const srcset = source.getAttribute('srcset') || '';
+				const firstUrl = srcset.split(',')[0].trim().split(/\s+/)[0];
+				if (firstUrl) img.setAttribute('src', firstUrl);
+			}
+		}
+	}
+
+	// 3. Resolve data-* lazy attributes & data-srcset
 	const images = Array.from(doc.querySelectorAll('img')) as any[];
-	const lazyAttributes = ['data-src', 'data-lazy-src', 'data-original', 'data-fallback-src', 'data-actual-src', 'data-src-webp'];
 	for (const img of images) {
 		let src = img.getAttribute('src');
-		const isPlaceholder = !src || src.startsWith('data:image/') || src.includes('placeholder') || src.includes('transparent') || src.includes('1x1') || src.includes('blank');
+		const isPlaceholder = isImagePlaceholder(src);
 
 		let resolvedFromLazy = false;
 		if (isPlaceholder) {
-			for (const attr of lazyAttributes) {
+			for (const attr of EXTENDED_LAZY_ATTRS) {
 				const lazyVal = img.getAttribute(attr);
-				if (lazyVal && lazyVal.trim().startsWith('http')) {
+				if (lazyVal && lazyVal.trim().length > 0) {
 					img.setAttribute('src', lazyVal.trim());
 					src = lazyVal.trim();
 					resolvedFromLazy = true;
@@ -75,17 +127,48 @@ export function resolveLazyImages(doc: any) {
 			}
 		}
 
-		// Only fall back to srcset if we still don't have a real image — a
+		// Only fall back to srcset / data-srcset if we still don't have a real image — a
 		// successful lazy-attr resolution above must not be clobbered.
-		if (!resolvedFromLazy && (!src || isPlaceholder) && img.getAttribute('srcset')) {
-			const srcset = img.getAttribute('srcset');
-			const candidates = srcset.split(',').map((cand: string) => {
-				const parts = cand.trim().split(/\s+/);
-				return { url: parts[0], width: parseInt(parts[1]) || 0 };
-			}).sort((a: any, b: any) => b.width - a.width);
-			if (candidates.length > 0 && candidates[0].url) {
-				img.setAttribute('src', candidates[0].url);
+		if (!resolvedFromLazy && (!src || isPlaceholder)) {
+			const srcset = img.getAttribute('data-srcset') || img.getAttribute('srcset');
+			if (srcset) {
+				const candidates = srcset
+					.split(',')
+					.map((cand: string) => {
+						const parts = cand.trim().split(/\s+/);
+						return { url: parts[0], width: parseInt(parts[1]) || 0 };
+					})
+					.sort((a: any, b: any) => b.width - a.width);
+				if (candidates.length > 0 && candidates[0].url) {
+					img.setAttribute('src', candidates[0].url);
+				}
 			}
+		}
+	}
+}
+
+// Neutralize elements that trigger Readability's aggressive cull rules:
+// - Readability deletes all <aside> tags unconditionally; convert to preserved callout divs.
+// - Neutralize negative classes from blockquotes and figures so unlikelyCandidates regex won't drop them.
+export function neutralizeAsidesAndQuotes(doc: any) {
+	const asides = Array.from(doc.querySelectorAll('aside')) as any[];
+	for (const aside of asides) {
+		const div = doc.createElement('div');
+		div.setAttribute('class', 'preserved-aside-callout');
+		div.setAttribute('data-preserved-aside', 'true');
+		for (const attr of aside.attributes || []) {
+			if (attr.name !== 'class') div.setAttribute(attr.name, attr.value);
+		}
+		while (aside.firstChild) div.appendChild(aside.firstChild);
+		aside.parentNode?.replaceChild(div, aside);
+	}
+
+	const NEGATIVE_RE = /(pullquote|quote-box|callout|sidebar|extra|social)/i;
+	const quotesAndFigures = Array.from(doc.querySelectorAll('blockquote, figure')) as any[];
+	for (const el of quotesAndFigures) {
+		const cls = el.getAttribute('class');
+		if (cls && NEGATIVE_RE.test(cls)) {
+			el.setAttribute('class', cls.replace(NEGATIVE_RE, 'preserved-$1'));
 		}
 	}
 }
@@ -109,6 +192,7 @@ export function convertCenterTags(doc: any) {
 function preprocess(doc: any) {
 	convertCenterTags(doc);
 	resolveLazyImages(doc);
+	neutralizeAsidesAndQuotes(doc);
 }
 
 // The extraction spine. Parses the Source's HTML twice — a pristine copy for
@@ -122,7 +206,20 @@ export async function extractArticle(source: Source, bucket: R2Bucket): Promise<
 	const { document: workingDoc } = parseHTML(source.html);
 	preprocess(workingDoc);
 
-	const reader = new Readability(workingDoc);
+	const reader = new Readability(workingDoc, {
+		charThreshold: 20,
+		nbTopCandidates: 10,
+		keepClasses: false,
+		classesToPreserve: [
+			'caption',
+			'highlight',
+			'screenshot',
+			'wp-block-image',
+			'wp-block-quote',
+			'callout',
+			'preserved-aside-callout'
+		]
+	});
 	const article = reader.parse();
 	if (!article) throw new Error('Failed to extract article content');
 

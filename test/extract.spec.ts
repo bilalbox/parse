@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { extractArticle, Source } from '../src/extract';
+import { parseHTML } from 'linkedom';
+import { extractArticle, resolveLazyImages, neutralizeAsidesAndQuotes, Source } from '../src/extract';
 
 // A fake R2 bucket that records puts instead of hitting the network.
 function fakeBucket() {
@@ -87,5 +88,62 @@ describe('extraction spine', () => {
 		expect(article.unsubscribeOneClick).toBe(false);
 		// content is the Readability result as JSON, with rewritten inner HTML
 		expect(() => JSON.parse(article.content)).not.toThrow();
+	});
+
+	it('preserves quotes inside <aside> and WordPress lazy screenshots', async () => {
+		const html = `<!doctype html><html><head><title>Test</title></head><body>
+			<article>
+				<h1>Test Title</h1>
+				${PARA}
+				<aside class="pullquote">
+					<blockquote><p>Crucial quote that must not be discarded by extraction.</p></blockquote>
+				</aside>
+				${PARA}
+				<figure class="wp-block-image">
+					<img src="data:image/svg+xml;base64,PHN2Zz4=" data-orig-file="https://example.com/screenshot.png">
+				</figure>
+				${PARA}
+			</article>
+		</body></html>`;
+
+		const bucket = fakeBucket();
+		const article = await extractArticle(fakeSource({ html }), bucket as any);
+
+		expect(article.content).toContain('Crucial quote that must not be discarded by extraction');
+		expect(bucket.puts).toHaveLength(1);
+		expect(article.content).toContain('/media/');
+	});
+
+	it('unpacks <picture> and <noscript> lazy images', () => {
+		const { document: doc } = parseHTML(`<div>
+			<picture>
+				<source srcset="https://example.com/pic-high.webp">
+				<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+			</picture>
+			<img src="data:image/svg+xml;base64,xyz">
+			<noscript><img src="https://example.com/noscript-real.png"></noscript>
+		</div>`);
+
+		resolveLazyImages(doc);
+
+		const imgs = Array.from(doc.querySelectorAll('img')) as any[];
+		expect(imgs[0].getAttribute('src')).toBe('https://example.com/pic-high.webp');
+		expect(imgs[1].getAttribute('src')).toBe('https://example.com/noscript-real.png');
+	});
+
+	it('neutralizes <aside> tags and negative classes on quotes', () => {
+		const { document: doc } = parseHTML(`<div>
+			<aside class="pullquote extra">
+				<blockquote><p>Preserved text</p></blockquote>
+			</aside>
+		</div>`);
+
+		neutralizeAsidesAndQuotes(doc);
+
+		expect(doc.querySelector('aside')).toBeNull();
+		const callout = doc.querySelector('.preserved-aside-callout');
+		expect(callout).not.toBeNull();
+		expect(callout.getAttribute('data-preserved-aside')).toBe('true');
+		expect(callout.textContent).toContain('Preserved text');
 	});
 });
