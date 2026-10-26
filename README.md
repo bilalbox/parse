@@ -110,3 +110,7 @@ number. Signing uses repository secrets, not a committed keystore (`*.keystore` 
 
 Schema lives in `schema.sql`; migrations in `migrations/`. Apply with
 `wrangler d1 migrations apply parse-db` (add `--remote` for the deployed database).
+
+## License
+
+MIT — see [LICENSE](LICENSE).

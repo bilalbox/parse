@@ -12,8 +12,16 @@ lerna-debug.log*
 
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
-# Keystore
+# Keystore / signing (never commit)
 *.keystore
+*.jks
+*.jks.*
+*.pem
+*.p12
+key.properties
+**/key.properties
+*service-account*.json
+credentials.json
 
 # Runtime data
 
